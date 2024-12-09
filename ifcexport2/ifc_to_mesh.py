@@ -244,9 +244,8 @@ def ifc_load(f):
     return ifc_loads(txt)
 
 
-if __name__ == "__main__":
 
-    def main():
+def main():
         parser = argparse.ArgumentParser(
             description=(
                 "Process an IFC file to extract geometric meshes and associated data.\n\n"
@@ -324,7 +323,8 @@ if __name__ == "__main__":
         if not input_file.is_file():
             print(f"Error: Input file '{input_file}' does not exist.", file=sys.stderr)
             sys.exit(1)
-
+        import ifcopenshell
+        import ifcopenshell.geom
         output_prefix: Path = (
             args.output_prefix
             if args.output_prefix is not None
@@ -384,23 +384,26 @@ if __name__ == "__main__":
             print(f"Error writing mesh file: {e}", file=sys.stderr)
             raise e
         # Write IFC database to JSON
-        ifcdb_output_file = output_prefix.with_suffix(".ifcdb.pkl")
-        try:
-            with ifcdb_output_file.open("wb") as f:
-                import pickle
-                pickle.dump(objects, f, protocol=pickle.HIGHEST_PROTOCOL)
-                # ujson.dump([asdict(o) for o in objects], f,ensure_ascii=False)
-            if print_items:
-                print(f"{ifcdb_output_file} saved.")
-            output_files.append(ifcdb_output_file)
-        except Exception as e:
-            print(f"Error writing IFC DB file: {e}", file=sys.stderr)
+        #ifcdb_output_file = output_prefix.with_suffix(".objects")
+        #try:
+        #    with ifcdb_output_file.open("wb") as f:
+        #        import pickle
+        #        pickle.dump([asdict(o) for o in objects], f,  protocol=pickle.HIGHEST_PROTOCOL)
+        #
+        #       # pickle.dump(objects, f, protocol=pickle.HIGHEST_PROTOCOL)
+        #       # ujson.dump([asdict(o) for o in objects], f,ensure_ascii=False)
+        #    if print_items:
+        #        print(f"{ifcdb_output_file} saved.")
+        #    output_files.append(ifcdb_output_file)
+        #except Exception as e:
+        #    print(f"Error writing IFC DB file: {e}", file=sys.stderr)
 
         # Write fails to JSON if requested
         if save_fails:
-            fails_output_file = output_prefix.with_suffix(".fails.json")
+            fails_output_file = output_prefix.with_suffix(".fails")
             try:
                 with fails_output_file.open("w") as f:
+
                     fails_serializable = [
                         {"item": asdict(fail.item), "traceback": fail.tb}
                         for fail in fails
@@ -422,4 +425,5 @@ if __name__ == "__main__":
             print(json.dumps([fl.__str__() for fl in output_files], ensure_ascii=False))
 
 
+if __name__ == "__main__":
     main()
