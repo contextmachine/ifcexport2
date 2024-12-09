@@ -3,11 +3,9 @@
 
 
 
----
-
 lang: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 
-![CXM Viewer](examples/Screenshot 2024-12-09 at 23.19.15.png)
+![CXM Viewer](examples/Screenshot%202024-12-09%20at%2023.19.15.png)
 
 Convert IFC (Industry Foundation Classes) files to CXM Viewer friendly format. This tool processes IFC files and creates JSON files compatible with the CXM Viewer.
 
@@ -31,16 +29,19 @@ This is the easiest method if you just want to use the tool from command line:
 pip install git+https://github.com/contextmachine/ifcexport2 
 ```
 
-> :warning: **Warning**: <br>
-On some systems (like macOS) you may encounter an error where python will complain that you are trying to install something in the system interpreter.
-In this case, you have the following options:
-    1. `pip install --user git+https://github.com/contextmachine/ifcexport2` This may work, or it may result in the same error. Be careful, the ~/.local/.bin directory must be in the PATH.
-    2. `pipx install git+https://github.com/contextmachine/ifcexport2` This is a good method that will definitely work, but you need to install `pipx`.
-    3. use `--break-system-packages` (not recommended). This will force pip to install the package in the system interpreter, but is not recommended as it can lead to complex dependency conflicts. It is up to you to decide.
-    4. Alternatively, using a virtual environment or conda will solve this problem. Read more about this.
 
+  > :warning: **Warning**: <br>
+  On some systems (like macOS) you may encounter an error where python will complain that you are trying to install something in the system interpreter.
+  > In this case, you have the following options:
+  > 1. `pip install --user git+https://github.com/contextmachine/ifcexport2` This may work, or it may result in the same error. Be careful, the ~/.local/.bin directory must be in the PATH.
+  > 2. `pipx install git+https://github.com/contextmachine/ifcexport2` This is a good method that will definitely work, but you need to install `pipx`.
+  > 3. use `--break-system-packages` (not recommended). This will force pip to install the package in the system interpreter, but is not recommended as it can lead to complex dependency conflicts. It is up to you to decide.
+  > 4. Alternatively, using a virtual environment or conda will solve this problem. Read more about this.
+  
+  
 
-5. After installation, you can run the tool directly:
+After installation, you can run the tool directly:
+
 ```bash
 ifcexport2 my_building.ifc
 ```
