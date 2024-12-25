@@ -5,8 +5,6 @@
 
 lang: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 
-![CXM Viewer](examples/Screenshot%202024-12-09%20at%2023.19.15.png)
-
 Convert IFC (Industry Foundation Classes) files to CXM Viewer friendly format. This tool processes IFC files and creates JSON files compatible with the CXM Viewer.
 
 ## Installation and Setup
