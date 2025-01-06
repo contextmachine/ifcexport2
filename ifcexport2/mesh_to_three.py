@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
 
-import numpy as np
-from .mesh import Mesh
 
+
+from .mesh import Mesh
+def rgb_to_dec(r, g, b):
+    return (r << 16) + (g << 8) + b
 def material(color_rgb, flat=True):
     return {
         "uuid": uuid.uuid4().__str__(),
@@ -19,8 +21,20 @@ def material(color_rgb, flat=True):
         "blendColor": 0,
         "flatShading": flat
     }
-def rgb_to_dec(r, g, b):
-    return (r << 16) + (g << 8) + b
+points_mat={
+    "uuid": "8e950ee703d04b6f816c9a56756288d7",
+	"type": "PointsMaterial",
+	"color": rgb_to_dec(255,0,0),
+	"size": 20,
+	"sizeAttenuation": False,
+	"side": 2,
+
+	"vertexColors": True,
+	"opacity":1.,
+	"transparent": False,
+
+}
+
 color_attr_material={
         "uuid": uuid.uuid4().__str__(),
         "type": "MeshStandardMaterial",
@@ -97,6 +111,47 @@ def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=
         }
 
     return mesh_object,geom,mat
+import numpy as np
+def points_to_three(pts:np.ndarray,  props:dict=None,name="MeshObject",matrix=None):
+    mesh_geometry_uid=uuid.uuid4().__str__()
+
+    geom={
+        "uuid":  mesh_geometry_uid,
+        "type": "BufferGeometry",
+        "data": {
+            "attributes": {
+                "position": {
+                    "itemSize": 3,
+                    "type": "Float32Array",
+                    "array": np.array(pts,dtype=float).flatten().tolist()
+                           },
+                "color": {
+                    "itemSize": 3,
+                    "type": "Float32Array",
+                    "array": np.array([(1.,0.,0.)]*len(pts), dtype=float).flatten().tolist()
+                }
+            },
+
+            }
+
+
+
+    }
+
+    mat=points_mat
+    mesh_object={
+            "uuid": uuid.uuid4().__str__(),
+            "type": "Points",
+            "name": name,
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] if matrix is None else list(matrix),
+            "up": [0, 1, 0],
+            "userData":{"properties":props if props is not None else {}},
+            "geometry": mesh_geometry_uid,
+            "material": mat["uuid"],
+        }
+
+    return mesh_object,geom,mat
 
 
 
@@ -113,22 +168,29 @@ def create_three_js_root(name:str= "Object", props=None):
         "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         "up": [0, 1, 0],   "name": name, "userData": {"properties": props if props is not None else {}},}
     }
-def add_material(root:dict, mat:dict):
-    if mat['uuid']in [m['uuid'] for m in root['materials']]:
-        return
+def add_material(root:dict, mat:dict, check_exist=False):
+    if check_exist:
+        if mat['uuid']in [m['uuid'] for m in root['materials']]:
+            return
     root['materials'].append(mat)
 
 
 def add_geometry(root: dict, geom: dict):
-    if geom['uuid'] in [g['uuid'] for g in root['geometries']]:
-        return
+
     root['geometries'].append(geom)
 
 def add_mesh(root:dict, obj:dict, geom:dict, mat:dict):
     root['object']['children'].append(obj)
     add_geometry(root, geom)
+    if mat['uuid'] == default_material['uuid'] :
+        return
+    add_material(root, mat,check_exist=False)
+def add_points(root:dict, obj:dict, geom:dict, mat:dict):
+    root['object']['children'].append(obj)
+    add_geometry(root, geom)
+    if mat['uuid'] == default_material['uuid']:
+        return
     add_material(root, mat)
-
 
 def add_group(root:dict, obj:dict):
     root['object']['children'].append(obj)
@@ -157,6 +219,7 @@ def generate_update_queries(current_objects, object_uuids,key='collision'):
     return query_activate, query_deactivate
 
 '''
+
 # Example usage
 current_objects = {
     "853cdc79-bb52-489b-a576-352dc6899bc3": {

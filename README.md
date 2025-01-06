@@ -7,6 +7,18 @@ lang: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 
 ![CXM Viewer](examples/Screenshot%202024-12-09%20at%2023.19.15.png)
 
+<!-- TOC -->
+* [ifcexport2](#ifcexport2-)
+  * [Installation and Setup](#installation-and-setup)
+    * [Prerequisites](#prerequisites)
+    * [Option 1: Simple Installation (pip)](#option-1-simple-installation-pip)
+    * [Option 2: Virtual Environment (venv)](#option-2-virtual-environment-venv)
+    * [Option 3: Conda Environment](#option-3-conda-environment)
+  * [Usage Examples](#usage-examples)
+  * [Troubleshooting](#troubleshooting)
+<!-- TOC -->
+
+
 Convert IFC (Industry Foundation Classes) files to CXM Viewer friendly format. This tool processes IFC files and creates JSON files compatible with the CXM Viewer.
 
 ## Installation and Setup
@@ -43,7 +55,7 @@ pip install git+https://github.com/contextmachine/ifcexport2
 After installation, you can run the tool directly:
 
 ```bash
-ifcexport2 my_building.ifc
+ifcexport2 export -f viewer  my_building.ifc
 ```
 
 ### Option 2: Virtual Environment (venv)
@@ -64,7 +76,7 @@ source ifcexport2_env/bin/activate
 pip install ifcexport2
 
 # Run the tool
-ifcexport2 my_building.ifc
+ifcexport2 export -f viewer  my_building.ifc
 
 # When finished, deactivate the environment
 deactivate
@@ -86,7 +98,7 @@ conda install -c conda-forge cgal ifcopenshell pythonocc-core lark
 pip install ifcexport2
 
 # Run the tool
-ifcexport2 my_building.ifc
+ifcexport2 export -f viewer  my_building.ifc
 
 # When finished
 conda deactivate
@@ -94,52 +106,83 @@ conda deactivate
 
 ## Usage Examples
 
-The basic command structure is:
+<!-- TOC -->
+* [Help](#help)
+* [IFC file exporting](#ifc-file-exporting)
+  * [Basic Usage](#basic-usage)
+  * [Advanced Usage Examples](#advanced-usage-examples)
+  * [Output Files](#output-files)
+  * [Command Line Options](#command-line-options)
+* [viewer.json file splitting](#*.viewer.json file splitting)
+<!-- TOC -->
+
+### Help
+View available sub-commands:
 ```bash
-ifcexport2 [options] input_file.ifc
+ifcexport2 --help
+```
+Out:
+```bash
+Usage: ifcexport2 [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  export  Process an IFC file to extract geometric meshes and associated...
+  split   Split a single *.viewer.json file into parts.
 ```
 
-### Basic Usage
+
+### Ifc file exporting
+
+
+The basic command structure is:
+```bash
+ifcexport2 export [options] input_file.ifc
+```
+
+#### Basic Usage
 
 Convert an IFC file with default settings:
 ```bash
-ifcexport2 my_building.ifc
+ifcexport2 export -f viewer  my_building.ifc
 ```
 
-### Advanced Usage Examples
+#### Advanced Usage Examples
 
 1. Scale the model and exclude certain IFC types:
 ```bash
-ifcexport2 -s 1000 -e IfcSpace IfcOpeningElement my_building.ifc
+ifcexport2 export -s 1000 -e IfcSpace IfcOpeningElement my_building.ifc
 ```
 
 2. Use multiple CPU threads for faster processing:
 ```bash
-ifcexport2 -t 4 my_building.ifc
+ifcexport2 export -t 4 my_building.ifc
 ```
 
 3. Specify custom output location:
 ```bash
-ifcexport2 -o /path/to/output/converted_model my_building.ifc
+ifcexport2 export -o /path/to/output/converted_model my_building.ifc
 ```
 
 4. Show processing progress:
 ```bash
-ifcexport2 -p my_building.ifc
+ifcexport2 export -p my_building.ifc
 ```
 
-### Output Files
+#### Output Files
 
 For each processed IFC file, two files will be created in the same folder:
 
 1. `*.viewer.json`: The converted file that can be loaded into the CXM viewer
 2. `*.fails`: JSON file listing any objects that failed to export (if any)
 
-### Command Line Options
+#### Command Line Options
 
 To see all available options:
 ```bash
-ifcexport2 --help
+ifcexport2 export --help
 ```
 
 Key options include:
@@ -150,6 +193,33 @@ Key options include:
 - `-p`, `--print`: Show progress during processing
 - `--no-save-fails`: Don't save failed items information
 - `--json-output`: Output results in JSON format (useful for scripts)
+
+### *.viewer.json file splitting
+To split a single `*viewer.json` file into multiple smaller files :
+
+```bash
+
+ifcexport2 split input_file.viewer.json N [options]
+```
+
+Where `N` is count of parts. For example, the following command will split the source file into 4 smaller files 
+and save them to the current directory:
+
+
+```bash
+
+ifcexport2 split input_file.viewer.json 4
+```
+
+
+
+You can also specify the directory where the result will be written to:
+
+
+```bash
+
+ifcexport2 split input_file.viewer.json 4 --output-dir /path/to/split/result
+```
 
 ## Troubleshooting
 
