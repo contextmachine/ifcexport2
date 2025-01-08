@@ -4,6 +4,8 @@ import argparse
 import dataclasses
 import json
 
+import rich
+
 from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh
 from ifcexport2.mesh import Mesh
 import multiprocessing
@@ -76,9 +78,12 @@ class ConvertResult:
 def convert(args: ConvertArguments) -> ConvertResult:
     ifc_file = ifc_loads(args.ifc_doc)
     settings = ifcopenshell.geom.settings()
+
     for k, v in args.settings.items():
         settings.set(getattr(settings, k), v)
     if args.backend is not None:
+
+
         iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=max(args.threads - 1, 1),
                                               geometry_library=args.backend)
     else:
@@ -276,14 +281,14 @@ def cli_export(
     Process an IFC file to extract geometric meshes and associated data.
     """
     if not input_file.is_file():
-        print(f"Error: Input file '{input_file}' does not exist.", file=sys.stderr)
+        rich.print(f"[red]Error: Input file '{input_file}' does not exist.[/red]", file=sys.stderr)
         sys.exit(1)
 
     try:
         import ifcopenshell
         import ifcopenshell.geom
     except ImportError as e:
-        print(f"Error importing required modules: {e}", file=sys.stderr)
+        rich.print(f"[red]Error importing required modules: {e}[/red]", file=sys.stderr)
         sys.exit(1)
 
     # Determine output prefix
@@ -298,7 +303,7 @@ def cli_export(
 
         # ifc_file = ifcopenshell.open(str(input_file))
     except Exception as e:
-        print(f"Error opening IFC file: {e}", file=sys.stderr)
+        rich.print(f"[red]Error opening IFC file: {e}[/red]", file=sys.stderr)
         sys.exit(1)
 
     # Create geometry iterator
@@ -320,9 +325,9 @@ def cli_export(
         if print_items:
             if len(fails) > 0:
 
-                    print(f"Failure: Error during geometry conversion: {result.fails}", file=sys.stderr)
+                    rich.print(f"[red]Failure: Error during geometry conversion: {result.fails}[/red]", file=sys.stderr)
             else:
-                    print(f"Failure: IfcOpenShell crashed on all attempts. No objects were extracted.", file=sys.stderr)
+                    rich.print(f"[red]Failure: IfcOpenShell crashed on all attempts. No objects were extracted.[/red]", file=sys.stderr)
 
 
         sys.exit(1)

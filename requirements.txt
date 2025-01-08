@@ -7,3 +7,5 @@ click
 celery
 fastapi[all]
 uvicorn[standard]
+DracoPy
+git+https://github.com/contextmachine/mmcore@tiny

@@ -4,7 +4,7 @@ import ujson
 import click
 from ifcexport2.compat import IfcExportCompat
 from ifcexport2.partition import partition_viewer_json
-
+import rich
 @click.group('ifcexport2')
 def ifcexport2_cli():
     ...
@@ -156,17 +156,63 @@ def export_ifc_to_viewer(input_file: Path,
     show_default=True,
     help=(
             "Path to the directory where the split files will be written. By default current working directory"))
-def split_viewer_json(input_file: Path, parts_count: int, output_dir: Path):
+@click.option('-n','--no-print',  is_flag=True,
+    default=False,help="Disable printing.")
+def split_viewer_json(input_file: Path, parts_count: int, output_dir: Path,no_print:bool=False):
+    verbose=not no_print
+    progress_bar_size = 64
+    step_size=(progress_bar_size//parts_count)
+    import time
+
+    console=rich.get_console()
+
+    if verbose:
+        console.print(f"Reading {input_file.absolute()}", style="rgb(127,127,127)")
+
+
+        #rich.print(f"  "+
+        #           "[grey]" + "░" * progress_bar_size + f"[/grey] [blue][bold]0/{parts_count}[/bold][/blue]",
+        #           end='\r',
+        #           flush=True)
     with input_file.open('r') as f:
         data=ujson.load(f)
-        res=partition_viewer_json(data,parts_count)
+
+
+
+
+
     _ifl=input_file.name
+
     for sf in input_file.suffixes:
         _ifl=_ifl.replace(sf,'')
 
-    for part,r in enumerate(res):
-        with (output_dir/f'{_ifl}-{part}.viewer.json').open('w')as fl:
-            ujson.dump(r, fl,ensure_ascii=False)
+    if verbose:
+        console.print(f"Perform splitting on {parts_count} parts ..", style="rgb(127,127,127)")
+        rich.print(f"  "+ "[grey]" + ("░" * progress_bar_size) +f"[/grey]" +f" [blue][bold]0/{parts_count}[/bold][/blue]",
+               end='\r',
+               flush=True)
+    outs=[]
+    for i, (jsn, perf) in enumerate(partition_viewer_json(data, parts_count, _ifl)):
+
+        path = f'{_ifl}-{i}.viewer.json'
+        outs.append(str((output_dir / path).absolute()))
+        with (output_dir/path).open( 'w') as f:
+            ujson.dump(jsn, f)
+        if verbose:
+
+            rich.print(
+                       f"  "+"[blue]" + "█" * (i * step_size) + f"[/blue]"+"[grey]" + ("░" * (progress_bar_size - (i * step_size))) + f"[/grey]" +f" [blue][bold]{i}/{parts_count}[/bold][/blue]",
+                       end='\r',
+                       flush=True)
+    if verbose:
+
+        rich.print(f"  "+
+                       "[blue]" + "█" *progress_bar_size + "[/blue]"+f" [blue][bold]{parts_count}/{parts_count}[/bold][/blue]",
+                       end='\n',
+                       flush=True)
+        console.print(f"Output files saved:",  outs, style="rgb(127,127,127)")
+
+
 
 
 if __name__ == "__main__":

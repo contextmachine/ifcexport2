@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -236,3 +237,9 @@ object_uuids = ["853cdc79-bb52-489b-a576-352dc6899bc3"]
 
 '''
 
+
+@dataclass
+class Object3DStorage:
+    objects: dict = field(default_factory=dict)
+    geometries: dict = field(default_factory=dict)
+    materials: dict = field(default_factory=dict)
