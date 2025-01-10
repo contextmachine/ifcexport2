@@ -11,7 +11,11 @@ setup(
 "numpy",
 "ujson",
 "lark",
-"requests"
+"requests",
+"click",
+        "rich"
+
+
     ],
     entry_points={
         'console_scripts': [

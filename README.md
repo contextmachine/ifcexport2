@@ -73,7 +73,9 @@ ifcexport2_env\Scripts\activate
 source ifcexport2_env/bin/activate
 
 # Install the package
-pip install ifcexport2
+pip install -r requirements.txt
+
+pip install .
 
 # Run the tool
 ifcexport2 export -f viewer  my_building.ifc
