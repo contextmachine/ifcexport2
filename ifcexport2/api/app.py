@@ -199,7 +199,7 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
     prms = {"fp": upl.file_path, **asdict(data)}
     if prms["name"] is None:
         prms["name"] = upl.filename.split(".")[0]
-
+    prms["upload_id"]=upload_id
     task = ifc_export.delay(prms)
     return ConversionTaskStatus(**{"id": task.id, "status": "pending"})
 

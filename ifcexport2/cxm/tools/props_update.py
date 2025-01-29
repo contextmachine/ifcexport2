@@ -94,7 +94,7 @@ import requests
 @lru_cache(maxsize=None)
 def _get_objects_props(url):
 
-    #url = 'https://storage.yandexcloud.net/box.contextmachine.space/share/data/test_OV2.json'
+
 
     return {obj['uuid']:obj.get('userData',dict()).get('properties',dict()) for obj in flattenObject3D(requests.get(url).json()['object']
                                                                                                        )}

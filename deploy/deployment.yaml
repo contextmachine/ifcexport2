@@ -23,25 +23,15 @@ spec:
         - name: ifcupload-container
           image: ghcr.io/contextmachine/ifcexport2:master  # Ссылка на образ.
           imagePullPolicy: Always
-
           env:
           - name: VOLUME_PATH
-            value: "/app/vol"
+            value: "/app/volume"
           - name: REDIS_URL
             value: "redis://ifcupload-redis-service:6379/0"
-          command:
-            - python
-            - -m
-            - ifcexport2.api.app
+          command: ["/opt/conda/bin/python", "-m","ifcexport2.api.app"]
 
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 8022
-            initialDelaySeconds: 5
-            periodSeconds: 10
           volumeMounts:
-            - mountPath: /app/vol # Путь по которому монтируются веса
+            - mountPath: /app/volume
               name: ifcupload-vol
 
       restartPolicy: Always

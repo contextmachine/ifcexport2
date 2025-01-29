@@ -8,7 +8,7 @@ import time
 from ifcexport2.ifc_to_mesh import safe_call_fast_convert, create_viewer_object
 from pathlib import Path
 
-from ifcexport2.api.settings import BLOBS_PATH
+from ifcexport2.api.settings import BLOBS_PATH,BUCKET_PREFIX
 
 
 @celery_app.task
@@ -25,17 +25,20 @@ def ifc_export(data:dict):
         del dt['fp']
 
         dt['ifc_string'] =f.read().decode('utf-8')
-
+    upload_id=dt.pop("upload_id")
 
     result=safe_call_fast_convert(**dt)
 
     root = create_viewer_object(dt['name'], result.objects)
-    key=BLOBS_PATH/f'{dt["name"]}.json'
+
+    key=f'{BUCKET_PREFIX}/{BLOBS_PATH.name}/{dt["name"]}-{upload_id}.json'
     with open(key,"w") as f:
         ujson.dump(root,f)
 
 
-    return {'url': key.as_uri(),'name':dt["name"]}
+
+
+    return {'url': key,'name': dt["name"]}
 
 
 @celery_app.task
