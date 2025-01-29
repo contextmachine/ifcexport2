@@ -1,0 +1,17 @@
+# PVC использующий S3 в качестве хранилища.
+# В него должны быть загружены веса моделей ИИ использующихся в приложении.
+# При таком подходе для обновления весов необходимо загрузить новые веса в S3
+# и перезапустить приложение, убив всех подов.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ifcupload-redis-hdd-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: yc-network-hdd
+

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ifcupload
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: ifcupload
@@ -48,5 +48,5 @@ spec:
       volumes:
         - name: ifcupload-vol
           persistentVolumeClaim:
-            claimName: ifcupload-csi-s3-pvc-dynamic
+            claimName: ifcuploader-csi-s3-pvc-dynamic
             readOnly: false
