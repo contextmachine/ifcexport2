@@ -43,7 +43,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }} 
+            ghcr.io/${{ github.repository }}:${{ github.sha }} 
 
       - name: Configure kubectl
         uses: azure/setup-kubectl@v3
@@ -58,11 +58,12 @@ jobs:
         run: |
           kubectl set image \
             deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker \
-            ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.ref_name }} --kubeconfig=deploy.kubeconfig
+            ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           kubectl set image \
             deployment/${{ vars.API_DEPLOYMENT_NAME }} \
-            ${{ vars.API_DEPLOYMENT_NAME }}-container=ghcr.io/${{ github.repository }}:${{ github.ref_name }} --kubeconfig=deploy.kubeconfig
+            ${{ vars.API_DEPLOYMENT_NAME }}-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           # If needed, you can also do a rollout restart
-          # kubectl rollout restart deployment/${{ vars.DEPLOYMENT_NAME }}-${{ github.ref_name }}
-
-        
+          kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker
+          kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }}
+          
+          
