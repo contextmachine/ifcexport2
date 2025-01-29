@@ -1,4 +1,4 @@
-name: Docker
+name: Deploy
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -10,13 +10,14 @@ on:
     branches: [ "master" ]
 
 jobs:
-  docker:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
         uses: actions/checkout@v3
-      - name: Extract branch name
+      -
+        name: Extract branch name
         shell: bash
         run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
         id: extract_branch
@@ -40,6 +41,28 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-
           tags: |
-            ghcr.io/contextmachine/ifcexport2:${{ steps.extract_branch.outputs.branch }}
+            ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }} 
+
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      - name: Create kubeconfig
+        # You need to set up your kubeconfig in some way, or use a dedicated action that authenticates
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" > deploy.kubeconfig
+
+      - name: Update K8s Deployment
+        run: |
+          kubectl set image \
+            deployment/${{ vars.WORKER_DEPLOYMENT_NAME }} \
+            ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.ref_name }} --kubeconfig=deploy.kubeconfig
+          kubectl set image \
+            deployment/${{ vars.API_DEPLOYMENT_NAME }} \
+            ${{ vars.API_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.ref_name }} --kubeconfig=deploy.kubeconfig
+          # If needed, you can also do a rollout restart
+          # kubectl rollout restart deployment/${{ vars.DEPLOYMENT_NAME }}-${{ github.ref_name }}
+
+        

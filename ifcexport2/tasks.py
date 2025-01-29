@@ -32,7 +32,7 @@ def ifc_export(data:dict):
     root = create_viewer_object(dt['name'], result.objects)
 
     key=f'{BUCKET_PREFIX}/{BLOBS_PATH.name}/{dt["name"]}-{upload_id}.json'
-    with open(key,"w") as f:
+    with open(BLOBS_PATH/f'{dt["name"]}-{upload_id}.json',"w") as f:
         ujson.dump(root,f)
 
 

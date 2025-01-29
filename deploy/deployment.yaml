@@ -10,15 +10,17 @@ spec:
   selector:
     matchLabels:
       app: ifcupload
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
       name: ifcupload
       labels:
         app: ifcupload
     spec:
-      imagePullSecrets:
-        # Здесь нужно указать имя секрета kubernetes.io/dockerconfigjson с учетными данными для реестра в котором хранится образ.
-        - name: ghcr-secret
       containers:
         - name: ifcupload-container
           image: ghcr.io/contextmachine/ifcexport2:master  # Ссылка на образ.
@@ -28,15 +30,16 @@ spec:
             value: "/app/volume"
           - name: REDIS_URL
             value: "redis://ifcupload-redis-service:6379/0"
-          command: ["/opt/conda/bin/python", "-m","ifcexport2.api.app"]
 
+
+          command: ["/opt/conda/bin/python", "-m","ifcexport2.api.app"]
           volumeMounts:
             - mountPath: /app/volume
-              name: ifcupload-vol
+              name: vol
 
       restartPolicy: Always
       volumes:
-        - name: ifcupload-vol
+        - name: vol
           persistentVolumeClaim:
             claimName: ifcuploader-csi-s3-pvc-dynamic
             readOnly: false

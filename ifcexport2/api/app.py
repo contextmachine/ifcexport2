@@ -224,6 +224,7 @@ async def get_result(task_id: str):
         return ConversionTaskStatus(
             **{"id": task_id, "status": "error", "detail": str(result.traceback)}
         )
+
     else:
         return ConversionTaskStatus(**{"id": task_id, "status": "pending"})
 

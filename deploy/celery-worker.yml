@@ -7,14 +7,16 @@ spec:
   selector:
     matchLabels:
       app: ifcupload-celery
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
       labels:
         app: ifcupload-celery
     spec:
-      imagePullSecrets:
-        # Здесь нужно указать имя секрета kubernetes.io/dockerconfigjson с учетными данными для реестра в котором хранится образ.
-        - name: ghcr-secret
       containers:
         - name: ifcupload-celery
           image:  ghcr.io/contextmachine/ifcexport2:master  #
@@ -28,6 +30,8 @@ spec:
               value: "redis://ifcupload-redis-service:6379/0"
             - name: VOLUME_PATH
               value: "/app/volume"
+            - name: BUCKET_PREFIX
+              value: "https://storage.yandexcloud.net/kube-cxm-cni/pvc-65a8b5f6-9fee-4d05-ab8e-07c2bc5fe695"
           volumeMounts:
             - mountPath: /app/volume
               name: vol
