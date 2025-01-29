@@ -9,7 +9,7 @@ Here's the updated Russian version:
 язык: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 
 
-![CXM Viewer](examples/Screenshot%202024-12-09%20at%2023.19.15.png)
+![CXM Viewer](examples/preview.png)
 
 <!-- TOC -->
 * [ifcexport2](#ifcexport2-)
