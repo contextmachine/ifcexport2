@@ -1,12 +1,18 @@
-from typing import Any
+from __future__ import annotations
+
+import dataclasses
+from typing import Any, Literal,Optional
+import ujson
+
 
 from .celery_config import celery_app
 import time
-from ifcexport2.ifc_to_mesh import safe_call_fast_convert, ConvertArguments, create_viewer_object
-from dataclasses import asdict
+from ifcexport2.ifc_to_mesh import safe_call_fast_convert, ConvertArguments, create_viewer_object,settings_dict
+import multiprocessing as mp
+from dataclasses import asdict,field
+from pathlib import Path
 
-from .cxm.consts import AWS_ENDPOINT_URL, AWS_DEFAULT_BUCKET
-from .cxm.s3 import S3Storage, S3Bucket
+from .settings import BLOBS_PATH
 
 
 @celery_app.task
@@ -14,18 +20,35 @@ def complex_calculation(x, y):
     time.sleep(10)  # Simulating a long computation
     return x * y
 
-s3 = S3Storage()
 
-bucket: S3Bucket = s3.get_client(AWS_ENDPOINT_URL, True).get_bucket(AWS_DEFAULT_BUCKET)
-views = []
 @celery_app.task
-def ifc_export(data:ConvertArguments):
+def ifc_export(data:dict):
+    dt = data
 
-    result=safe_call_fast_convert(**asdict(data))
+    with open(data['fp'],'rb' ) as f:
+        del dt['fp']
 
-    root = create_viewer_object(data.name, result.objects)
-    key=f'uploads/{data.name}.json',
-    res=bucket.post(key, root)
-    print(res)
+        dt['ifc_string'] =f.read().decode('utf-8')
 
-    return {'endpoint': bucket.get_url(key),'name':data.name}
+
+    result=safe_call_fast_convert(**dt)
+
+    root = create_viewer_object(dt['name'], result.objects)
+    key=BLOBS_PATH/f'{dt["name"]}.json'
+    with open(key,"w") as f:
+        ujson.dump(root,f)
+
+
+    return {'url': key.as_uri(),'name':dt["name"]}
+
+
+@celery_app.task
+def file_upload(data:bytes, path:str):
+    path=Path(path)
+    if path.parent.exists() and path.is_dir():
+        with open(path,'wb') as f:
+            f.write(data)
+
+        return {'status': "success",'path':path}
+
+    return {'status': "error", 'path':path,"detail":f"No such directory: {path.parent}"}

@@ -5,6 +5,7 @@ celery_app = Celery(
 
 )
 celery_app.conf.broker_url = 'redis://localhost:6379/0'
+celery_app.conf.result_backend = "redis://localhost:6379/0"
 celery_app.conf.update(
     result_expires=3600,
 )

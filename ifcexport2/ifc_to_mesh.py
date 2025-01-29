@@ -57,7 +57,6 @@ def write_ir_to_file(objects: list[IRObject], fp, props=None, name="Group"):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ConvertArguments:
     ifc_doc: str
-
     backend: Literal['cgal','cgal-simple','opencascade'] | None = None
     scale: float = 1.0
     excluded_types: Tuple[str, ...] = ("IfcSpace","IfcOpeningElement")
