@@ -19,3 +19,16 @@ spec:
           env:
             - name: REDIS_URL
               value: "redis://ifcupload-redis-service:6379/0"
+            - name: VOLUME_PATH
+              value: "/app/vol"
+          volumeMounts:
+            - mountPath: /app/vol
+              name: ifcupload-vol
+
+      restartPolicy: Always
+      volumes:
+        - name: ifcupload-vol
+          persistentVolumeClaim:
+            claimName: ifcupload-csi-s3-pvc-dynamic
+            readOnly: false
+

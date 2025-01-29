@@ -13,7 +13,11 @@ setup(
 "lark",
 "requests",
 "click",
-        "rich"
+"rich",
+        "celery[redis]",
+        "fastapi[all]",
+        "uvicorn[standard]",
+        "aiofiles"
 
 
     ],

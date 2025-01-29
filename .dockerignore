@@ -15,7 +15,8 @@ deploy
 example-get-queries.graphql
 example-insert-wueries.graphql
 intr.py
-setup.py
 utils.py
 pretty-ceiling.json
 env.yml
+pyproject.toml
+poetry.lock
