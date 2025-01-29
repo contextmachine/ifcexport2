@@ -12,9 +12,13 @@ spec:
       labels:
         app: ifcupload-celery
     spec:
+      imagePullSecrets:
+        # Здесь нужно указать имя секрета kubernetes.io/dockerconfigjson с учетными данными для реестра в котором хранится образ.
+        - name: ghcr-secret
       containers:
         - name: ifcupload-celery
-          image: cr.yandex/crpfskvn79g5ht8njq0k/ifcexport2:master
+          image:  ghcr.io/contextmachine/ifcexport2:master  #
+          imagePullPolicy: Always
           command: ["/opt/conda/bin/celery",
               "-A",
                "ifcexport2.tasks",
