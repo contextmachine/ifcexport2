@@ -2,6 +2,7 @@
 # ifcexport2 
 
 
+[![Deploy](https://github.com/contextmachine/ifcexport2/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/contextmachine/ifcexport2/actions/workflows/docker-publish.yml)
 
 lang: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 

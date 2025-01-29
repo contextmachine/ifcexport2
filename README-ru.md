@@ -1,10 +1,6 @@
-Let me update the Russian version to match the English content:
-
-
-
-Here's the updated Russian version:
-
 # ifcexport2 
+
+[![Deploy](https://github.com/contextmachine/ifcexport2/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/contextmachine/ifcexport2/actions/workflows/docker-publish.yml)
 
 язык: [🇺🇸](README.md) [ 🇷🇺](README-ru.md)
 
