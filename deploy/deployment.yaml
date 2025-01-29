@@ -1,0 +1,51 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ifcupload
+  labels:
+    app: ifcupload
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ifcupload
+  template:
+    metadata:
+      name: ifcupload
+      labels:
+        app: ifcupload
+    spec:
+      imagePullSecrets:
+        # Здесь нужно указать имя секрета kubernetes.io/dockerconfigjson с учетными данными для реестра в котором хранится образ.
+        - name: ghcr-secret
+      containers:
+        - name: ifcupload-container
+          image: ghcr.io/contextmachine/ifcexport2:master  # Ссылка на образ.
+          imagePullPolicy: Always
+
+          env:
+          - name: VOLUME_PATH
+            value: "/app/uploads"
+          - name: REDIS_URL
+            value: "redis://ifcupload-redis-service:6379/0"
+          command:
+            - python
+            - ifcexport2/api/app.py
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8022
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - mountPath: /app/uploads # Путь по которому монтируются веса
+              name: uploads
+
+      restartPolicy: Always
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: ifcupload-csi-s3-pvc-dynamic
+            readOnly: false

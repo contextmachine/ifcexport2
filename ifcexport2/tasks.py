@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-import dataclasses
-from typing import Any, Literal,Optional
 import ujson
 
 
 from .celery_config import celery_app
 import time
-from ifcexport2.ifc_to_mesh import safe_call_fast_convert, ConvertArguments, create_viewer_object,settings_dict
-import multiprocessing as mp
-from dataclasses import asdict,field
+from ifcexport2.ifc_to_mesh import safe_call_fast_convert, create_viewer_object
 from pathlib import Path
 
-from .settings import BLOBS_PATH
+from ifcexport2.api.settings import BLOBS_PATH
 
 
 @celery_app.task

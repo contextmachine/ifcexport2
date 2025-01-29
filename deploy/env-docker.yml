@@ -1,11 +1,11 @@
-name: ifcexport2
+name: base
 channels:
 - conda-forge
 dependencies:
+- python=3.12
 - cgal
 - ifcopenshell
 - lark
-- python=3.12
 - pythonocc-core
 - numpy
 - pip:

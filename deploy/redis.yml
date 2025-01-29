@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ifcupload-redis
+  labels:
+    app: ifcupload-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ifcupload-redis
+  template:
+    metadata:
+      name: ifcupload-redis
+      labels:
+        app: ifcupload-redis
+    spec:
+      imagePullSecrets:
+        # Здесь нужно указать имя секрета kubernetes.io/dockerconfigjson с учетными данными для реестра в котором хранится образ.
+        - name: ghcr-secret
+      containers:
+        - name: ifcupload-redis-container
+          image: redis:latest  # Ссылка на образ.
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - mountPath: /data # Persistent storage
+              name: rds-data
+          command: ["-d", "redis" ,"redis-server", "-save", "60" ,"1"]
+
+      restartPolicy: Always
+      volumes:
+        - name: rds-data
+          persistentVolumeClaim:
+            claimName: ifcupload-redis-csi-s3-pvc-dynamic
+            readOnly: false
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ifcupload-redis-service
+spec:
+  selector:
+    app: ifcupload-redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP

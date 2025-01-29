@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ifcupload-celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ifcupload-celery
+  template:
+    metadata:
+      labels:
+        app: ifcupload-celery
+    spec:
+      containers:
+        - name: ifcupload-celery
+          image: ghcr.io/contextmachine/ifcexport2:master
+          command: ["celery", "-A", " ifcexport2.task", "worker", "--loglevel=info"]
+          env:
+            - name: REDIS_URL
+              value: "redis://ifcupload-redis-service:6379/0"
