@@ -10,6 +10,7 @@ on:
     branches: [ "master" ]
 
 jobs:
+
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -63,7 +64,8 @@ jobs:
             deployment/${{ vars.API_DEPLOYMENT_NAME }} \
             ${{ vars.API_DEPLOYMENT_NAME }}-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           # If needed, you can also do a rollout restart
-          kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
-          kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
+          # kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
+          # kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
+          
           
           

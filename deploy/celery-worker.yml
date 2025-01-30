@@ -20,18 +20,24 @@ spec:
       containers:
         - name: ifcupload-celery
           image:  ghcr.io/contextmachine/ifcexport2:master  #
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["/opt/conda/bin/celery",
-              "-A",
-               "ifcexport2.tasks",
-               "worker"]
+                    "-A",
+                    "ifcexport2.tasks",
+                    "worker",
+                    "--max-memory-per-child=5242880" # 5Gi
+          ]
           env:
             - name: REDIS_URL
               value: "redis://ifcupload-redis-service:6379/0"
             - name: VOLUME_PATH
               value: "/app/volume"
+              # kubectl create secret generic ifcupload-secrets --from-literal=BUCKET_PREFIX=https://my-secret-bucket-prefix
             - name: BUCKET_PREFIX
-              value: "https://storage.yandexcloud.net/kube-cxm-cni/pvc-65a8b5f6-9fee-4d05-ab8e-07c2bc5fe695"
+              valueFrom:
+                secretKeyRef:
+                  name: ifcupload-secrets
+                  key: BUCKET_PREFIX
           volumeMounts:
             - mountPath: /app/volume
               name: vol
