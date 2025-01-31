@@ -1,8 +1,10 @@
 from __future__ import annotations
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-
+from fastapi.responses import FileResponse
 
 import os
 import shutil
@@ -18,7 +20,7 @@ from fastapi import UploadFile, Request, BackgroundTasks, File, HTTPException
 
 import uuid
 
-from ifcexport2.tasks import ifc_export
+from ifcexport2.tasks import ifc_export, BLOBS_PATH
 
 from ifcexport2.celery_config import celery_app
 
@@ -199,9 +201,29 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
     prms = {"fp": upl.file_path, **asdict(data)}
     if prms["name"] is None:
         prms["name"] = upl.filename.split(".")[0]
+
     prms["upload_id"]=upload_id
+    threads: int = max(1, os.cpu_count()-4)
+
+    prms['threads']=threads
+    prms['settings']['use-python-opencascade']=False
+
     task = ifc_export.delay(prms)
-    return ConversionTaskStatus(**{"id": task.id, "status": "pending"})
+    _id = str(task.id)
+    del task
+    return ConversionTaskStatus(**{"id": _id, "status": "pending"})
+
+
+@app.get("/blobs/{blob_id}")
+async def blobs_proxy(blob_id:str):
+    path=BLOBS_PATH/blob_id
+    if path.exists() and path.is_file():
+        return FileResponse(path)
+    else:
+        raise HTTPException(status_code=404, detail=f"Blob {blob_id} is not found")
+
+
+
 
 
 @app.get(
@@ -211,8 +233,8 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
 )
 async def get_result(task_id: str):
     result = AsyncResult(task_id, app=celery_app)
-
-    if result.ready():
+    print(task_id,result.as_tuple())
+    if result.successful():
         return ConversionTaskStatus(
             **{
                 "id": task_id,
@@ -221,12 +243,16 @@ async def get_result(task_id: str):
             }
         )
     elif result.failed():
+        tb=str(result.traceback)
+
+        result.forget()
+
         return ConversionTaskStatus(
-            **{"id": task_id, "status": "error", "detail": str(result.traceback)}
+            **{"id": task_id, "status": "error", "detail": tb}
         )
 
     else:
-        return ConversionTaskStatus(**{"id": task_id, "status": "pending"})
+        return ConversionTaskStatus(**{"id": task_id, "status": "pending", "detail":result.status})
 
 
 def check_task_status(task_id: str):

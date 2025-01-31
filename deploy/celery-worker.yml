@@ -8,10 +8,7 @@ spec:
     matchLabels:
       app: ifcupload-celery
   strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
+    type: Recreate
   template:
     metadata:
       labels:
@@ -19,13 +16,13 @@ spec:
     spec:
       containers:
         - name: ifcupload-celery
-          image:  ghcr.io/contextmachine/ifcexport2:master  #
-          imagePullPolicy: IfNotPresent
+          image:  ghcr.io/contextmachine/ifcexport2:master
+          imagePullPolicy: Always
           command: ["/opt/conda/bin/celery",
                     "-A",
                     "ifcexport2.tasks",
                     "worker",
-                    "--max-memory-per-child=5242880" # 5Gi
+                    "--max-memory-per-child=5242880"
           ]
           env:
             - name: REDIS_URL
@@ -38,9 +35,15 @@ spec:
                 secretKeyRef:
                   name: ifcupload-secrets
                   key: BUCKET_PREFIX
+          resources:
+            requests:
+              memory: 6291456 Ki
+              cpu: 4000m
+
           volumeMounts:
             - mountPath: /app/volume
               name: vol
+
       restartPolicy: Always
       volumes:
         - name: vol

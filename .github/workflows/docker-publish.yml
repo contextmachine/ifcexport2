@@ -57,6 +57,8 @@ jobs:
 
       - name: Update K8s Deployment
         run: |
+          kubectl apply -f ./deploy/celery-worker.yml
+          kubectl apply -f ./deploy/deployment.yaml
           kubectl set image \
             deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker \
             ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
@@ -64,8 +66,8 @@ jobs:
             deployment/${{ vars.API_DEPLOYMENT_NAME }} \
             ${{ vars.API_DEPLOYMENT_NAME }}-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           # If needed, you can also do a rollout restart
-          # kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
-          # kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
+          kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
+          kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
           
           
           

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import gc
 import json
+import os
 
 import rich
 
@@ -19,12 +21,12 @@ from pathlib import Path
 from typing import List, Tuple, Union, Literal
 from typing import Protocol
 from ifcexport2.models import IRObject, ImportFailList, IfcFail
-
+NO_OCC=bool(os.getenv("NO_OCC",0))
 settings_dict = dict(USE_WORLD_COORDS=True, DISABLE_BOOLEAN_RESULT=False, WELD_VERTICES=True,
                      DISABLE_OPENING_SUBTRACTIONS=False,
                      NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True)
 
-
+import gc
 class Triangulation(Protocol):
     faces: list[int]
     verts: list[float]
@@ -57,10 +59,10 @@ def write_ir_to_file(objects: list[IRObject], fp, props=None, name="Group"):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ConvertArguments:
     ifc_doc: str
-    backend: Literal['cgal','cgal-simple','opencascade'] | None = None
+    backend: Literal['cgal','cgal-simple','opencascade'] | None = None if NO_OCC else "opencascade"
     scale: float = 1.0
-    excluded_types: Tuple[str, ...] = ("IfcSpace","IfcOpeningElement")
-    threads: int = 1
+    excluded_types: list[str] = dataclasses.field(default_factory=lambda :["IfcSpace","IfcOpeningElement"])
+    threads: int = min(os.cpu_count(), 4)
     settings: dict = dataclasses.field(default_factory=lambda: {**settings_dict})
     name: str = "Model"
 
@@ -76,10 +78,13 @@ class ConvertResult:
 
 def convert(args: ConvertArguments) -> ConvertResult:
     ifc_file = ifc_loads(args.ifc_doc)
+
     settings = ifcopenshell.geom.settings()
+    #settings.set("use-python-opencascade", not NO_OCC)
 
     for k, v in args.settings.items():
-        settings.set(getattr(settings, k), v)
+        print(getattr(settings, k, k),v)
+        settings.set(getattr(settings, k, k), v)
     if args.backend is not None:
 
 
@@ -95,12 +100,19 @@ def convert(args: ConvertArguments) -> ConvertResult:
         print_items=False,
         excluded_types=args.excluded_types
     )
+    del iterator
+    del ifc_file
+    del args
+    gc.collect(
+
+    )
+
     return ConvertResult(success, objects, meshes, fails)
 
 
 def safe_call_fast_convert(ifc_string: str, scale: float = 1.0,
                            excluded_types: Tuple[str, ...] = ("IfcSpace",),
-                           threads: int = 1,
+                           threads: int = min(6,os.cpu_count()-2),
                            settings: dict = None,name="Model"):
 
     return convert(ConvertArguments(ifc_string, scale=scale, excluded_types=excluded_types, threads=threads,
@@ -209,6 +221,7 @@ def process_ifc_geometry_items(
                 print(f"Reading IFC: {i}", flush=True, end="\r")
             i += 1
             shape = geom_iterator.get()
+
             if shape.type not in excluded_types:
                 success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale)
                 if success:

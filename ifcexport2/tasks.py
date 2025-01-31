@@ -1,4 +1,7 @@
-from __future__ import annotations
+
+
+import gc
+import os
 
 import ujson
 
@@ -8,7 +11,18 @@ import time
 from ifcexport2.ifc_to_mesh import safe_call_fast_convert, create_viewer_object
 from pathlib import Path
 
-from ifcexport2.api.settings import BLOBS_PATH,BUCKET_PREFIX
+VOLUME_PATH=Path(os.getenv("VOLUME_PATH", "./vol")).absolute()
+if not VOLUME_PATH.exists():
+    raise OSError(f"VOLUME_PATH ({VOLUME_PATH}) is not exists!")
+
+
+BUCKET_PREFIX=os.getenv("BUCKET_PREFIX",  "http://0.0.0.0:8022")
+
+BLOBS_PATH=Path(os.getenv("BLOBS_PATH", VOLUME_PATH/"blobs")).absolute()
+
+if not BLOBS_PATH.exists():
+    BLOBS_PATH.mkdir(parents=True,exist_ok=False)
+
 
 
 @celery_app.task
@@ -25,6 +39,7 @@ def ifc_export(data:dict):
         del dt['fp']
 
         dt['ifc_string'] =f.read().decode('utf-8')
+
     upload_id=dt.pop("upload_id")
 
     result=safe_call_fast_convert(**dt)
@@ -37,8 +52,12 @@ def ifc_export(data:dict):
 
 
 
-
-    return {'url': key,'name': dt["name"]}
+    name=dt['name']
+    del dt
+    del data
+    del root
+    gc.collect()
+    return {'url': key,'name': name}
 
 
 @celery_app.task
