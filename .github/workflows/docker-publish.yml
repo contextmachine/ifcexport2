@@ -58,7 +58,7 @@ jobs:
       - name: Update K8s Deployment
         run: |
           DEPLOYMENT_NAME=ifc-export
-          kubectl apply -f ./deploy/appv2.yml --kubeconfig=deploy.kubeconfig
+          kubectl apply -f ./deploy/appv2.yaml --kubeconfig=deploy.kubeconfig
           kubectl apply -f ./deploy/appv2-worker.yaml --kubeconfig=deploy.kubeconfig
           kubectl set image \
             deployment/$DEPLOYMENT_NAME-consumer \

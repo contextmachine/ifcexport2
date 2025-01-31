@@ -4,13 +4,12 @@ import time
 import redis
 
 from ifcexport2.api.settings import DEPLOYMENT_NAME
+from ifcexport2.api.redis_helpers import redis_client
 from ifcexport2.appv2.task import ifc_export
 # Initialize Redis
-r = redis.Redis(host="localhost", port=6379, db=0)
+r = redis_client
 
 # Create a pubsub instance and subscribe to "tasks"
-p = r.pubsub()
-p.subscribe("tasks")
 
 print("Consumer is running and listening for tasks...")
 

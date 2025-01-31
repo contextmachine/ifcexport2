@@ -30,6 +30,11 @@ spec:
             value: "/app/volume"
           - name: REDIS_URL
             value: "redis://ifcupload-redis-service:6379/0"
+          - name: BUCKET_PREFIX
+            valueFrom:
+              secretKeyRef:
+                name: ifcupload-secrets
+                key: BUCKET_PREFIX
           command: ["/opt/conda/bin/python", "-m","ifcexport2.appv2.consumer"]
           volumeMounts:
             - mountPath: /app/volume
@@ -39,5 +44,5 @@ spec:
       volumes:
         - name: vol
           persistentVolumeClaim:
-            claimName: ifcupload-csi-s3-pvc-dynamic
+            claimName: ifcuploader-csi-s3-pvc-dynamic
             readOnly: false

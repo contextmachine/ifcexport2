@@ -10,8 +10,9 @@ from starlette.concurrency import run_in_threadpool
 
 from ifcexport2.api.settings import BLOBS_PATH, UPLOADS_PATH, DEPLOYMENT_NAME
 
+from ifcexport2.api.redis_helpers import Hset,redis_client
 # Initialize Redis (adjust host/port/db as needed)
-r = redis.Redis(host="localhost", port=6379, db=0)
+r = redis_client
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +24,7 @@ import shutil
 from pathlib import Path
 from ifcexport2.api.models import TaskStatus, ConversionTaskResult, ConversionTaskStatus, ConversionTaskInputs, Upload
 
-from ifcexport2.api.redis_helpers import Hset
+
 
 from fastapi import UploadFile, Request, BackgroundTasks, File, HTTPException
 
