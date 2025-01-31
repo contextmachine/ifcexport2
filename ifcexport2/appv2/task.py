@@ -17,7 +17,7 @@ if not VOLUME_PATH.exists():
     raise OSError(f"VOLUME_PATH ({VOLUME_PATH}) is not exists!")
 
 
-BUCKET_PREFIX=os.getenv("BUCKET_PREFIX",  "http://0.0.0.0:8022")
+BUCKET_PREFIX=os.getenv("BUCKET_PREFIX",  "http://localhost:8022")
 
 BLOBS_PATH=Path(os.getenv("BLOBS_PATH", VOLUME_PATH/"blobs")).absolute()
 

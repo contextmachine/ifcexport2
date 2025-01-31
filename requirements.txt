@@ -8,5 +8,6 @@ celery
 fastapi[all]
 uvicorn[standard]
 DracoPy
+redis
 git+https://github.com/contextmachine/mmcore@tiny
 
