@@ -37,4 +37,4 @@ def extract_deployment_name(pod_name: str) -> str:
     else:
         return pod_name
 
-DEPLOYMENT_NAME=extract_deployment_name(os.getenv("HOSTNAME","ifcupload-local"))
+DEPLOYMENT_NAME="ifc-export"

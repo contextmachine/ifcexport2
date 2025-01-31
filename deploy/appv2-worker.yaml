@@ -24,7 +24,7 @@ spec:
       containers:
         - name: ifc-export-consumer-container
           image: ghcr.io/contextmachine/ifcexport2:master  # Ссылка на образ.
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
           - name: VOLUME_PATH
             value: "/app/volume"
