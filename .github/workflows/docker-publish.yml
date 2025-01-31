@@ -57,17 +57,18 @@ jobs:
 
       - name: Update K8s Deployment
         run: |
-          kubectl apply -f ./deploy/celery-worker.yml --kubeconfig=deploy.kubeconfig
-          kubectl apply -f ./deploy/deployment.yaml --kubeconfig=deploy.kubeconfig
+          DEPLOYMENT_NAME=ifc-export
+          kubectl apply -f ./deploy/appv2.yml --kubeconfig=deploy.kubeconfig
+          kubectl apply -f ./deploy/appv2-worker.yaml --kubeconfig=deploy.kubeconfig
           kubectl set image \
-            deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker \
-            ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
+            deployment/$DEPLOYMENT_NAME-consumer \
+            $DEPLOYMENT_NAME-consumer-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           kubectl set image \
-            deployment/${{ vars.API_DEPLOYMENT_NAME }} \
-            ${{ vars.API_DEPLOYMENT_NAME }}-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
+            deployment/$DEPLOYMENT_NAME \
+            $DEPLOYMENT_NAME-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
           # If needed, you can also do a rollout restart
-          kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
-          kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
+          # kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
+          # kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
           
           
           
