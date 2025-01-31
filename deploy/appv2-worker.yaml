@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ifc-export-consumer
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: ifc-export-consumer
@@ -35,7 +35,7 @@ spec:
               secretKeyRef:
                 name: ifcupload-secrets
                 key: BUCKET_PREFIX
-          command: ["/opt/conda/bin/python", "-m","ifcexport2.appv2.consumer"]
+          command: ["python",  "ifcexport2/appv2/consumer.py"]
           volumeMounts:
             - mountPath: /app/volume
               name: vol

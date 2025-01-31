@@ -35,7 +35,7 @@ spec:
               secretKeyRef:
                 name: ifcupload-secrets
                 key: BUCKET_PREFIX
-          command: ["/opt/conda/bin/python", "-m","ifcexport2.appv2.app"]
+          command: ["python", "ifcexport2/appv2/app.py"]
           volumeMounts:
             - mountPath: /app/volume
               name: vol

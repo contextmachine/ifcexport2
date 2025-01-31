@@ -14,10 +14,10 @@ setup(
 "requests",
 "click",
 "rich",
-        "celery[redis]",
-        "fastapi[all]",
-        "uvicorn[standard]",
-        "aiofiles"
+"celery[redis]",
+"fastapi[all]",
+"uvicorn[standard]",
+"aiofiles"
 
 
     ],

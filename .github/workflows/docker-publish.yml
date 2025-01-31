@@ -43,32 +43,32 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
             ghcr.io/${{ github.repository }}:${{ github.sha }} 
+            ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}                      
 
-      - name: Configure kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-      - name: Create kubeconfig
-        # You need to set up your kubeconfig in some way, or use a dedicated action that authenticates
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" > deploy.kubeconfig
-
-      - name: Update K8s Deployment
-        run: |
-          DEPLOYMENT_NAME=ifc-export
-          kubectl apply -f ./deploy/appv2.yaml --kubeconfig=deploy.kubeconfig
-          kubectl apply -f ./deploy/appv2-worker.yaml --kubeconfig=deploy.kubeconfig
-          kubectl set image \
-            deployment/$DEPLOYMENT_NAME-consumer \
-            $DEPLOYMENT_NAME-consumer-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
-          kubectl set image \
-            deployment/$DEPLOYMENT_NAME \
-            $DEPLOYMENT_NAME-container=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
-          # If needed, you can also do a rollout restart
-          # kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
-          # kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
+      #- name: Configure kubectl
+      #  uses: azure/setup-kubectl@v3
+      #  with:
+      #    version: 'latest'
+      #- name: Create kubeconfig
+      #  # You need to set up your kubeconfig in some way, or use a dedicated action that authenticates
+      #  run: |
+      #    echo "${{ secrets.KUBE_CONFIG }}" > deploy.kubeconfig
+      #
+      #- name: Update K8s Deployment
+      #  run: |
+      #    DEPLOYMENT_NAME=ifc-export
+      #    kubectl apply -f ./deploy/appv2.yaml  --validate=false --kubeconfig=deploy.kubeconfig
+      #    kubectl apply -f ./deploy/appv2-worker.yaml  --validate=false  --kubeconfig=deploy.kubeconfig
+      #    kubectl set image \
+      #      deployment/$DEPLOYMENT_NAME-consumer \
+      #      $DEPLOYMENT_NAME-consumer-container=ghcr.io/${{ github.repository }}:${{ github.sha }}  --validate=false --kubeconfig=deploy.kubeconfig
+      #    kubectl set image \
+      #      deployment/$DEPLOYMENT_NAME \
+      #      $DEPLOYMENT_NAME-container=ghcr.io/${{ github.repository }}:${{ github.sha }}  --validate=false --kubeconfig=deploy.kubeconfig
+      #    # If needed, you can also do a rollout restart
+      #    # kubectl rollout restart deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker --kubeconfig=deploy.kubeconfig
+      #    # kubectl rollout restart deployment/${{ vars.API_DEPLOYMENT_NAME }} --kubeconfig=deploy.kubeconfig
           
           
           
