@@ -57,8 +57,8 @@ jobs:
 
       - name: Update K8s Deployment
         run: |
-          kubectl apply -f ./deploy/celery-worker.yml
-          kubectl apply -f ./deploy/deployment.yaml
+          kubectl apply -f ./deploy/celery-worker.yml --kubeconfig=deploy.kubeconfig
+          kubectl apply -f ./deploy/deployment.yaml --kubeconfig=deploy.kubeconfig
           kubectl set image \
             deployment/${{ vars.WORKER_DEPLOYMENT_NAME }}-worker \
             ${{ vars.WORKER_DEPLOYMENT_NAME }}=ghcr.io/${{ github.repository }}:${{ github.sha }} --kubeconfig=deploy.kubeconfig
