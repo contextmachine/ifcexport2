@@ -24,7 +24,7 @@ from ifcexport2.models import IRObject, ImportFailList, IfcFail
 NO_OCC=bool(os.getenv("NO_OCC",0))
 settings_dict = dict(USE_WORLD_COORDS=True, DISABLE_BOOLEAN_RESULT=False, WELD_VERTICES=True,
                      DISABLE_OPENING_SUBTRACTIONS=False,
-                     NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True)
+                     NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True,CONVERT_BACK_UNITS=True)
 
 import gc
 class Triangulation(Protocol):
