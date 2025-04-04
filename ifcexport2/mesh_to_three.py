@@ -79,6 +79,8 @@ def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=
 
 
     }
+
+    mat = mat
     if mesh.colors is not None:
         colors={
             "itemSize":int( mesh.colors.shape[-1]),
@@ -86,18 +88,20 @@ def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=
             "array": np.array(mesh.colors, dtype=float).flatten().tolist()
         }
         geom['data']['attributes']['color']=colors
-    if color is not None:
-        if color not in _material_table:
+        mat = color_attr_material
 
-            _material_table[color]=material(color)
-
-        mat=_material_table[color]
-    elif mat is not None :
-        mat=mat
-    elif mesh.colors is not None:
-        mat=color_attr_material
     else:
-        mat=default_material
+        if color is not None:
+            if color not in _material_table:
+
+                _material_table[color]=material(color)
+
+            mat=_material_table[color]
+        elif mat is not None :
+            mat=mat
+
+        else:
+            mat=default_material
 
     mesh_object={
             "uuid": uuid.uuid4().__str__(),
@@ -154,6 +158,8 @@ def points_to_three(pts:np.ndarray,  props:dict=None,name="MeshObject",matrix=No
 
     return mesh_object,geom,mat
 
+def get_property(obj:dict, key:str, value=None):
+    return obj.get('userData',{}).get("properties",{}).get(key,value)
 
 
 def create_three_js_root(name:str= "Object", props=None):
@@ -169,6 +175,18 @@ def create_three_js_root(name:str= "Object", props=None):
         "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         "up": [0, 1, 0],   "name": name, "userData": {"properties": props if props is not None else {}},}
     }
+def create_group(name:str= "Object", props=None):
+    return {
+        "type":"Group",
+        "uuid":uuid.uuid4().__str__(),
+        "children":[],
+            "layers": 1,
+        "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        "up": [0, 1, 0],
+            "name": name,
+            "userData": {"properties": props if props is not None else {}},}
+
+
 def add_material(root:dict, mat:dict, check_exist=False):
     if check_exist:
         if mat['uuid']in [m['uuid'] for m in root['materials']]:
@@ -186,6 +204,8 @@ def add_mesh(root:dict, obj:dict, geom:dict, mat:dict):
     if mat['uuid'] == default_material['uuid'] :
         return
     add_material(root, mat,check_exist=False)
+
+
 def add_points(root:dict, obj:dict, geom:dict, mat:dict):
     root['object']['children'].append(obj)
     add_geometry(root, geom)

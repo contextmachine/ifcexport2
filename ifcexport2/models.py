@@ -9,7 +9,7 @@ IfcFail = namedtuple("IfcFail", ["item", "tb"])
 ImportFailList = Union[List, List[IfcFail]]
 
 @dataclasses.dataclass(slots=True,unsafe_hash=True)
-class IRObject:
+class IRGeometryObject:
     id: int
     type: str
     name: str
@@ -18,3 +18,13 @@ class IRObject:
     transform: List[float]
     mesh:Mesh
     props:dict[str]= dataclasses.field(default_factory=dict)
+
+
+
+@dataclasses.dataclass(slots=True,unsafe_hash=True)
+class IRGroupObject:
+    id: int
+    type: str
+    name: str
+    props:dict[str]= dataclasses.field(default_factory=dict)
+    children:'list[IRGeometryObject|IRGroupObject]'= dataclasses.field(default_factory=list)

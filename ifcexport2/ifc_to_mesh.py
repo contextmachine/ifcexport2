@@ -8,7 +8,9 @@ import os
 
 import rich
 
-from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh
+
+from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh, create_group, get_property, \
+    add_material, material, default_material, add_geometry, color_attr_material
 from ifcexport2.mesh import Mesh
 import multiprocessing
 import sys
@@ -16,15 +18,17 @@ import traceback
 from dataclasses import asdict
 import ifcopenshell
 import ifcopenshell.geom
+
+import ifcopenshell.util.element
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import List, Tuple, Union, Literal
+from typing import List, Tuple, Union, Literal, NamedTuple,Any
 from typing import Protocol
-from ifcexport2.models import IRObject, ImportFailList, IfcFail
+from ifcexport2.models import IRGeometryObject, ImportFailList, IfcFail
 NO_OCC=bool(os.getenv("NO_OCC",0))
 settings_dict = dict(USE_WORLD_COORDS=True, DISABLE_BOOLEAN_RESULT=False, WELD_VERTICES=True,
                      DISABLE_OPENING_SUBTRACTIONS=False,
-                     NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True,CONVERT_BACK_UNITS=True)
+                     NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True,CONVERT_BACK_UNITS=False)
 
 import gc
 class Triangulation(Protocol):
@@ -47,7 +51,7 @@ import numpy as np
 import ujson
 
 
-def write_ir_to_file(objects: list[IRObject], fp, props=None, name="Group"):
+def write_ir_to_file(objects: list[IRGeometryObject], fp, props=None, name="Group"):
     if props is None:
         props = {}
     root = create_three_js_root(name, props)
@@ -70,7 +74,7 @@ class ConvertArguments:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ConvertResult:
     success: bool
-    objects: list[IRObject]
+    objects: list[IRGeometryObject]
     meshes: list[Mesh]
     fails: ImportFailList
 
@@ -85,6 +89,7 @@ def convert(args: ConvertArguments) -> ConvertResult:
     for k, v in args.settings.items():
         print(getattr(settings, k, k),v)
         settings.set(getattr(settings, k, k), v)
+
     if args.backend is not None:
 
 
@@ -132,7 +137,7 @@ def extract_color(itm):
 
 def parse_geom_item(
         item: TriangulationElement, scale: float = 1.0
-) -> Tuple[bool, IRObject, Union[Mesh, Tuple[str, str]]]:
+) -> Tuple[bool, IRGeometryObject, Union[Mesh, Tuple[str, str]]]:
     typ = item.type
     trx = item.transformation.matrix
     product_id = item.id
@@ -179,7 +184,7 @@ def parse_geom_item(
             )
 
 
-        ifc_object = IRObject(
+        ifc_object = IRGeometryObject(
             id=product_id,
             type=typ,
             name=name,
@@ -190,7 +195,7 @@ def parse_geom_item(
         )
         return True, ifc_object, msh
     except RuntimeError as err:
-        ifc_object = IRObject(
+        ifc_object = IRGeometryObject(
             id=product_id,
             type=typ,
             name=name,
@@ -208,8 +213,8 @@ def process_ifc_geometry_items(
         scale: float,
         print_items: bool,
         excluded_types: Tuple[str, ...],
-) -> Tuple[bool, List[IRObject], List[Mesh], ImportFailList]:
-    objects: List[IRObject] = []
+) -> Tuple[bool, List[IRGeometryObject], List[Mesh], ImportFailList]:
+    objects: List[IRGeometryObject] = []
     meshes: List[Mesh] = []
     fails: List[IfcFail] = []
 
@@ -244,26 +249,84 @@ def process_ifc_geometry_items(
 
 
 def ifc_loads(txt: str):
+
     ifcfile = ifcopenshell.file.from_string(txt)
     return ifcfile
 
-def create_viewer_object(name, objects):
-    root = create_three_js_root(name)
-    for o in objects:
-                msh = mesh_to_three(
+import     ifcexport2.ifc_psets
+import re
+
+def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict[int,IRGeometryObject],ifc_file:ifcopenshell.file):
+
+    add_material(three_js_root, default_material)
+    add_material(three_js_root,color_attr_material)
+    root = three_js_root['object']
+    roots_stack = [(root, list(h.root_elements))]
+    while roots_stack:
+        current_root, next_roots = roots_stack.pop()
+        next_roots.reverse()
+        current_root_id=get_property(current_root, 'id')
+
+        for obj_id in next_roots:
+
+            obj_childs = h.hierarchy.get(obj_id, [])
+            additional_props = {}
+            if current_root_id is not None:
+                additional_props={"parent_id":current_root_id}
+
+
+            props=ifcexport2.ifc_psets.extract_props(obj_id,ifc_file,additional_props)
+
+            if len(obj_childs) > 0:
+
+                obj_o = create_group(props['name'], props)
+
+
+
+                roots_stack.append((obj_o, obj_childs))
+
+            else:
+
+                o = geoms[obj_id]
+                if o.mesh.color is None:
+
+                   mat =default_material
+
+
+                else :
+                    mat = color_attr_material
+
+
+                obj_o ,obj_geom,obj_mat= mesh_to_three(
                     o.mesh,
-                    {
-                        "name": o.name,
-                        "type": o.type,
-                        "parent_id": o.parent_id,
-                        "context": o.context,
-                        "id": o.id
-                    },
-                    name=o.name,
+                    name=props['name'],
                     matrix=o.transform,
-                    color=o.mesh.color
-                )
-                add_mesh(root, *msh)
+                    props=props)
+
+                obj_o['material']=mat['uuid']
+
+
+                add_geometry(three_js_root, obj_geom)
+
+            current_root['children'].append(obj_o)
+
+
+
+
+import ifcexport2.ifc_hierarchy
+
+def create_viewer_object(name, objects:list[IRGeometryObject],ifc_file:ifcopenshell.file,include_spatial_hierarchy:bool=True):
+    geoms={o.id :o for o in objects}
+
+    ifc_hierarchy=ifcexport2.ifc_hierarchy.clean_hierarchy(
+        ifcexport2.ifc_hierarchy.build_hierarchy(ifc_file,
+                                                 include_spatial_hierarchy=include_spatial_hierarchy
+                                                 ),
+        list(geoms.keys())
+    )
+    root = create_three_js_root(name,{'name':name})
+    _build(root,ifc_hierarchy,geoms,ifc_file)
+
     return root
 
 def ifc_load(f):
@@ -273,6 +336,7 @@ def ifc_load(f):
     else:
         txt = f.read()
     return ifc_loads(txt)
+
 
 
 from pathlib import Path
@@ -350,8 +414,12 @@ def cli_export(
     # Write meshes to file
     if output_format.viewer:
         try:
+            ifc_file = ifcopenshell.file.from_string(ifc_string)
 
-            root=create_viewer_object(input_file.stem,objects)
+            root=create_viewer_object(input_file.stem,
+                                      objects,
+                                      ifc_file
+                                      )
             mesh_output_file = output_prefix.with_suffix(".viewer.json")
             with open(mesh_output_file, 'w') as f:
                 json.dump(root, f)

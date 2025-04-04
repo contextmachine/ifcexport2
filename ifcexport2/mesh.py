@@ -10,6 +10,6 @@ class Mesh:
     normals:Optional[NDArray]=None
     uv:Optional[NDArray]=None
     colors:Optional[NDArray]=None
-    color:Optional[tuple[int]]=None
+    color:Optional[tuple[int,int,int]]=None
     uid:int|str=0
 
