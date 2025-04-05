@@ -38,7 +38,7 @@ def ifc_export(data:dict):
         result=safe_call_fast_convert(**dt)
 
 
-        root = create_viewer_object(dt['name'], result.objects, ifcopenshell.file.from_string(   dt['ifc_string']),include_spatial_hierarchy=True)
+        root = create_viewer_object(dt['name'], result.objects, ifcopenshell.file.from_string(   dt['ifc_string']),include_spatial_hierarchy=False)
 
         key=f'{BUCKET_PREFIX}/{BLOBS_PATH.name}/{dt["name"]}-{upload_id}.json'
         with open(BLOBS_PATH/f'{dt["name"]}-{upload_id}.json',"w") as f:
