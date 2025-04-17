@@ -2,7 +2,7 @@
 import json
 import time
 import redis
-
+import gc
 from ifcexport2.api.settings import DEPLOYMENT_NAME
 from ifcexport2.api.redis_helpers import redis_client
 from ifcexport2.appv2.task import ifc_export
@@ -42,9 +42,22 @@ while True:
                 "detail": ""
             })
             print(f"Task {task_id} completed successfully.")
+            gc.collect()
         except KeyboardInterrupt as err:
+            r.hset(task_id, mapping={
+                "status": "error",
+                "result": "",
+                "detail": str(err)
+            })
+
             break
         except OSError as err:
+            r.hset(task_id, mapping={
+                "status": "error",
+                "result": "",
+                "detail": str(err)
+            })
+            gc.collect()
             raise err
         except Exception as e:
 
@@ -54,7 +67,9 @@ while True:
                 "result": "",
                 "detail": str(e)
             })
+
             print(f"Task {task_id} failed with error: {e}")
+            gc.collect()
 
 
 print("Consumer is stopped...")
