@@ -10,7 +10,7 @@ import ujson
 
 
 
-from ifcexport2.ifc_to_mesh import safe_call_fast_convert, create_viewer_object
+from ifcexport2.ifc_to_mesh import safe_call_fast_convert, create_viewer_object,settings_dict
 from pathlib import Path
 
 VOLUME_PATH=Path(os.getenv("VOLUME_PATH", "./vol")).absolute()

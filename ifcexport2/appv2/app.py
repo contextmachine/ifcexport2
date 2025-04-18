@@ -9,7 +9,7 @@ import redis
 from starlette.concurrency import run_in_threadpool
 
 from ifcexport2.api.settings import BLOBS_PATH, UPLOADS_PATH, DEPLOYMENT_NAME
-
+from ifcexport2.settings import ifcopenshell_default_settings_dict
 from ifcexport2.api.redis_helpers import Hset,redis_client
 # Initialize Redis (adjust host/port/db as needed)
 r = redis_client
@@ -202,7 +202,10 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
     if upl is None:
         raise HTTPException(status_code=404, detail="Upload ID not found")
     task_id = str(uuid.uuid4())
-    prms = {"fp": upl.file_path, **asdict(data)}
+
+    data_dict=asdict(data)
+    data_dict['settings']={**ifcopenshell_default_settings_dict, **data_dict['settings']}
+    prms = {"fp": upl.file_path, **data_dict}
     if prms["name"] is None:
         prms["name"] = upl.filename.split(".")[0]
 
@@ -219,18 +222,21 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
         "task_id": task_id,
         "data": prms
     }
+    json_message=json.dumps(message)
     # Initialize the task status in Redis
     # We'll store status, result, detail, etc. in a hash named after task_id
     r.hset(task_id, mapping={
         "status": "pending",
+        "data":json_message,
         "result": "",
         "detail": ""
-    })
+    }
+           )
 
     # Instead of publishing to a channel, we push the task_id to a list
     # The consumer(s) will BRPOP from this list
 
-    r.lpush(f"{DEPLOYMENT_NAME}_task_queue", json.dumps(message))
+    r.lpush(f"{DEPLOYMENT_NAME}_task_queue", json_message)
 
 
 

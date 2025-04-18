@@ -26,9 +26,7 @@ from typing import List, Tuple, Union, Literal, NamedTuple,Any
 from typing import Protocol
 from ifcexport2.models import IRGeometryObject, ImportFailList, IfcFail
 NO_OCC=bool(os.getenv("NO_OCC",0))
-settings_dict = dict(USE_WORLD_COORDS=True, DISABLE_BOOLEAN_RESULT=False, WELD_VERTICES=True,
-                     DISABLE_OPENING_SUBTRACTIONS=False,
-                     NO_NORMALS=True, PRECISION=1e-7, VALIDATE=False, ELEMENT_HIERARCHY=True,CONVERT_BACK_UNITS=False)
+from ifcexport2.settings import ifcopenshell_default_settings_dict  as settings_dict
 
 import gc
 class Triangulation(Protocol):
@@ -87,7 +85,7 @@ def convert(args: ConvertArguments) -> ConvertResult:
     #settings.set("use-python-opencascade", not NO_OCC)
 
     for k, v in args.settings.items():
-        print(getattr(settings, k, k),v)
+
         settings.set(getattr(settings, k, k), v)
 
     if args.backend is not None:

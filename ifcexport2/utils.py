@@ -92,3 +92,4 @@ def generate_flat_colors_index_map( faces, colors):
         new_face = tuple(vertex_color_map[(vertex_idx, color)] for vertex_idx in face)
         new_faces.append(new_face)
     return index_map, new_faces, new_colors
+

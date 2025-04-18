@@ -38,3 +38,9 @@ def extract_deployment_name(pod_name: str) -> str:
         return pod_name
 
 DEPLOYMENT_NAME="ifc-export"
+
+
+
+consumer_settings=dict(
+    max_attempts_count=2
+)
