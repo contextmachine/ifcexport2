@@ -60,13 +60,14 @@ def write_ir_to_file(objects: list[IRGeometryObject], fp, props=None, name="Grou
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ConvertArguments:
-    ifc_doc: str
+    ifc_doc: str|Any
     backend: Literal['cgal','cgal-simple','opencascade'] | None = None if NO_OCC else "opencascade"
     scale: float = 1.0
     excluded_types: list[str] = dataclasses.field(default_factory=lambda :["IfcSpace","IfcOpeningElement"])
     threads: int = min(os.cpu_count(), 4)
     settings: dict = dataclasses.field(default_factory=lambda: {**settings_dict})
-    name: str = "Model"
+    name: str = "Model",
+    is_file_path:bool=False
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -79,7 +80,13 @@ class ConvertResult:
 
 
 def convert(args: ConvertArguments) -> ConvertResult:
-    ifc_file = ifc_loads(args.ifc_doc)
+    if isinstance(args.ifc_doc,str):
+
+        ifc_file = ifc_loads(args.ifc_doc, is_path=False)
+    else:
+        print()
+        ifc_file=args.ifc_doc
+
 
     settings = ifcopenshell.geom.settings()
     #settings.set("use-python-opencascade", not NO_OCC)
@@ -116,10 +123,19 @@ def convert(args: ConvertArguments) -> ConvertResult:
 def safe_call_fast_convert(ifc_string: str, scale: float = 1.0,
                            excluded_types: Tuple[str, ...] = ("IfcSpace",),
                            threads: int = min(6,os.cpu_count()-2),
-                           settings: dict = None,name="Model"):
+                           settings: dict = None,name="Model", is_file_path:bool=False):
 
     return convert(ConvertArguments(ifc_string, scale=scale, excluded_types=excluded_types, threads=threads,
-                                            settings=settings,name=name))
+                                            settings=settings,name=name,is_file_path=is_file_path))
+
+
+def convert_from_file_path(ifc_fp: str, scale: float = 1.0,
+                           excluded_types: Tuple[str, ...] = ("IfcSpace",),
+                           threads: int = min(6, os.cpu_count() - 2),
+                           settings: dict = None, name="Model", is_file_path: bool = False):
+    print(f'from fp: {ifc_fp}')
+    return convert(ConvertArguments(ifcopenshell.open(ifc_fp), scale=scale, excluded_types=excluded_types, threads=threads,
+                                    settings=settings, name=name, is_file_path=is_file_path))
 
 
 def extract_color(itm):
@@ -246,8 +262,9 @@ def process_ifc_geometry_items(
         return False, [], [], []
 
 
-def ifc_loads(txt: str):
-
+def ifc_loads(txt: str, is_path:bool=False):
+    if is_path:
+        return ifcopenshell.open(txt)
     ifcfile = ifcopenshell.file.from_string(txt)
     return ifcfile
 

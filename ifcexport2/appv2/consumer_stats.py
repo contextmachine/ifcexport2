@@ -19,7 +19,6 @@ class ConsumerProcessCpuTimes(TypedDict):
 @dataclass
 class ConsumerProcessStats:
     pid:int
-    is_running:int
     cpu_times:ConsumerProcessCpuTimes
     cpu_percent:float
     memory_info:ConsumerProcessMemoryInfo
@@ -33,7 +32,7 @@ def get_process(pid=None):
 def process_stats(pid=None)->ConsumerProcessStats:
 
     proc = get_process(pid)
-    stats=ConsumerProcessStats(proc.pid,proc.is_running(),proc.cpu_times()._asdict(), proc.cpu_percent(), proc.memory_full_info()._asdict(),     proc.memory_percent())
+    stats=ConsumerProcessStats(proc.pid,proc.cpu_times()._asdict(), proc.cpu_percent(), proc.memory_full_info()._asdict(),     proc.memory_percent())
     return stats
 
 class ExceptionData(TypedDict):

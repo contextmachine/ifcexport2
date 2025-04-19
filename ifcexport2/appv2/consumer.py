@@ -1,5 +1,6 @@
 # consumer.py
 import json
+import os
 import threading
 import time
 from dataclasses import asdict
@@ -94,10 +95,13 @@ def update_consumer_exit_info():
     r.hset(app_name,'exit','true')
 if __name__ =='__main__':
     import threading as th
+
+
     thrdd=dict(stop_th=False)
 
     def ww():
         global stop_th
+
         while True:
 
             if thrdd['stop_th'] :
@@ -113,150 +117,96 @@ if __name__ =='__main__':
 
     thr=threading.Thread(target=ww)
     thr.start()
-    try:
-        print('app name:',app_name)
-        while True:
-            update_consumer_info('idle')
-            time.sleep(1)
-            # BRPOP will block until there is an item in "task_queue".
-            # It returns a tuple: (queue_name, item)
-            # where 'item' is the JSON we initially pushed.
 
-            queue_data = r.brpop(f"{DEPLOYMENT_NAME}_task_queue")  # or (queue, item) = r.brpop(["task_queue"])
-            attempts = 0
-            # queue_data is something like: (b'task_queue', b'{"task_id":"...","data":"..."}')
-            if queue_data:
-                _, raw_item = queue_data
-                task_item = json.loads(raw_item)
+    print('app name:',app_name)
+    while True:
 
-                task_id = task_item["task_id"]
-                task_data = task_item["data"]
+        # BRPOP will block until there is an item in "task_queue".
+        # It returns a tuple: (queue_name, item)
+        # where 'item' is the JSON we initially pushed.
 
-                print(f"Consumer picked up task {task_id} with data: {task_data}")
+        queue_data = r.brpop(f"{DEPLOYMENT_NAME}_task_queue")  # or (queue, item) = r.brpop(["task_queue"])
+        attempts = 0
+        # queue_data is something like: (b'task_queue', b'{"task_id":"...","data":"..."}')
+        if queue_data:
+            _, raw_item = queue_data
+            task_item = json.loads(raw_item)
 
-            else:
-                error_tasks=get_hashes_with_field(r, 'status', 'error',1)
+            task_id = task_item["task_id"]
+            task_data = task_item["data"]
 
-                if not error_tasks:
-                    continue
-                else:
-
-                    task_id, task_fields = list(error_tasks)[0]
-                    print(f"Consumer check up error task {task_id} with data: {task_fields}")
-                    if 'attempts' in task_fields:
-                        attempts=task_fields['attempts']
-                        if attempts>consumer_settings['max_attempts_count']:
-                            r.hdel(task_id,'status','fail')
-
-                            gc.collect()
-
-                            continue
+            print(f"Consumer picked up task {task_id} with data: {task_data}")
 
 
-                    if 'data' not in task_fields:
-                        print(f"Consumer reject error task {task_id} (no task data).")
+        try:
+                update_consumer_info('work', current_task=task_id)
 
-                        gc.collect()
-                        continue
-                    task_data = json.loads(task_fields['data'])
+                result =   json.dumps(ifc_export(task_data))
 
-                    r.hset(task_id, mapping={**task_fields,**{"status":"pending","attempts":attempts+1}})
-
-                    print(f"Consumer picked up error task {task_id} with data: {task_data}")
-
-
-
-
-
-                # Simulate some work
-            try:
-                    update_consumer_info('work', current_task=task_id)
-
-                    result =   json.dumps(ifc_export(task_data))
-
-                    # Update the Redis hash with success
-                    r.hset(task_id, mapping={
-                        "status": "success",
-                        "result": result,
-                        "data": json.dumps(task_data),
-                        "detail": ""
-
-                    })
-                    print(f"Task {task_id} completed successfully.")
-                    gc.collect()
-
-            except KeyboardInterrupt as err:
-                thrdd['stop_th'] = True
-                thr.join(1.)
+                # Update the Redis hash with success
                 r.hset(task_id, mapping={
-                    "status": "error",
-                    "result": "",
+                    "status": "success",
+                    "result": result,
                     "data": json.dumps(task_data),
-                    "detail": exception_data(err),
-                    "attempts": attempts + 1
+                    "detail": ""
+
                 })
+                gc.collect()
+                update_consumer_info('idle')
+                print(f"Task {task_id} completed successfully.")
 
-                update_consumer_info('stop')
-                update_consumer_exit_info()
-                exit(1)
 
-
-            except OSError as err:
-
-                    r.hset(task_id, mapping={
-                        "status": "error",
-                        "result": "",
-                        "data": json.dumps(task_data),
-                        "detail": json.dumps( exception_data(err)),
-                        "attempts":attempts+1
-                    })
-                    thrdd['stop_th']=True
-                    thr.join(1.)
-                    update_consumer_info('error',current_task=task_id)
-
-                    gc.collect()
-
-                    update_consumer_exit_info()
-                    raise err
-            except Exception as err:
-
-                    # In case of any error, update Redis with error status
-                    r.hset(task_id, mapping={
-                        "status": "error",
-                        "result": "",
-                        "data": json.dumps(task_data),
-                        "detail":exception_data(err),
-                        "attempts":attempts+1
-                    })
-
-                    print(f"Task {task_id} failed with error: {err}")
-                    update_consumer_info('idle')
-                    gc.collect()
-            gc.collect()
-
-    except KeyboardInterrupt as err:
-
+        except KeyboardInterrupt as err:
             thrdd['stop_th'] = True
             thr.join(1.)
-
+            r.hset(task_id, mapping={
+                "status": "error",
+                "result": "",
+                "data": json.dumps(task_data),
+                "detail": exception_data(err),
+                "attempts": attempts + 1
+            })
+            thrdd['stop_th'] = True
+            thr.join(1.)
             update_consumer_info('stop')
+
             update_consumer_exit_info()
-            if task_data:
+            raise err
+
+
+        except OSError as err:
+
                 r.hset(task_id, mapping={
                     "status": "error",
                     "result": "",
                     "data": json.dumps(task_data),
-                    "detail": exception_data(err),
-                    "attempts": attempts + 1
+                    "detail": json.dumps( exception_data(err)),
+                    "attempts":attempts+1
+                })
+                thrdd['stop_th']=True
+                thr.join(1.)
+                update_consumer_info('error',current_task=task_id)
+
+                gc.collect()
+
+                update_consumer_exit_info()
+                raise err
+        except Exception as err:
+
+                # In case of any error, update Redis with error status
+                r.hset(task_id, mapping={
+                    "status": "error",
+                    "result": "",
+                    "data": json.dumps(task_data),
+                    "detail":json.dumps(exception_data(err)),
+                    "attempts":attempts+1
                 })
 
-            raise err
-    except Exception as err:
-        thrdd['stop_th'] = True
-        thr.join(1.)
-        update_consumer_info('error')
-        update_consumer_exit_info()
-        raise err
+                print(f"Task {task_id} failed with error: {err}")
+                update_consumer_info('idle')
+                gc.collect()
+        gc.collect()
+        time.sleep(1)
 
     thrdd['stop_th'] = True
     thr.join(1.)

@@ -17,7 +17,9 @@ setup(
 "celery[redis]",
 "fastapi[all]",
 "uvicorn[standard]",
-"aiofiles"
+"aiofiles",
+        "psutils",
+        "kubernetes"
     ],
     entry_points={
         'console_scripts': [

@@ -213,6 +213,7 @@ async def convert_ifc_endpoint(upload_id: str, data: ConversionTaskInputs):
     threads: int = max(1, os.cpu_count() - 2)
 
     prms['threads'] = threads
+    prms['is_file_path']=True
 
 
     # Initialize the task status in Redis
