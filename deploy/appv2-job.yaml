@@ -1,0 +1,48 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ifc-export-consumer
+  labels:
+    app: ifc-export-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ifc-export-consumer
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      name: ifc-export-consumer
+      labels:
+        app: ifc-export-consumer
+    spec:
+      containers:
+        - name: ifc-export-consumer-container
+          image: ghcr.io/contextmachine/ifcexport2:master  # Ссылка на образ.
+          imagePullPolicy: Always
+          env:
+          - name: VOLUME_PATH
+            value: "/app/volume"
+          - name: REDIS_URL
+            value: "redis://ifcupload-redis-service:6379/0"
+          - name: BUCKET_PREFIX
+            valueFrom:
+              secretKeyRef:
+                name: ifcupload-secrets
+                key: BUCKET_PREFIX
+          command: ["python",  "ifcexport2/appv2/consumer.py"]
+          volumeMounts:
+            - mountPath: /app/volume
+              name: vol
+
+      restartPolicy: Always
+      volumes:
+        - name: vol
+          persistentVolumeClaim:
+            claimName: ifcuploader-csi-s3-pvc-dynamic
+            readOnly: false

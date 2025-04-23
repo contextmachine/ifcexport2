@@ -18,8 +18,8 @@ setup(
 "fastapi[all]",
 "uvicorn[standard]",
 "aiofiles",
-        "psutils",
-        "kubernetes"
+        "psutil",
+        "kubernetes",
     ],
     entry_points={
         'console_scripts': [
