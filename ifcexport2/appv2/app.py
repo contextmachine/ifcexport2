@@ -138,7 +138,7 @@ async def upload_ifc_endpoint(
     upload_id = str(uuid.uuid4())
 
     # 3.3) Decide final location
-    final_path = UPLOADS_PATH / f"{upload_id}.ifc"
+    final_path = UPLOADS_PATH / f"{upload_id}{''.join(Path(file.filename).suffixes)}"
 
     upl = Upload(
         upload_id,
