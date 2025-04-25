@@ -189,6 +189,20 @@ async def get_upload_status(upload_id: str):
         **{"id": upload_id, "status": status_data.status, "detail": status_data.detail}
     )
 
+@app.get(
+    "/upload_data/{upload_id}",  response_model_exclude_none=True
+)
+async def get_upload_data(upload_id: str):
+    """
+    Endpoint to retrieve the current status of the upload by ID.
+    """
+
+    upload_data = upload_statuses.get(upload_id)
+
+    if not upload_data:
+        raise HTTPException(status_code=404, detail="Upload ID not found")
+    return upload_data
+
 
 @app.post(
     "/conversion/{upload_id}",
