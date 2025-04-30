@@ -13,10 +13,8 @@ def material(color_rgb, flat=True):
         "type": "MeshStandardMaterial",
         "color": int(rgb_to_dec(*color_rgb)),
         "roughness": 0.8,
-        "metalness": 0.88,
+        "metalness": 0.8,
         "emissive": 0,
-        "envMapRotation": [0, 0, 0,
-                           "XYZ"],
         "envMapIntensity": 1,
         "side": 2,
         "blendColor": 0,
@@ -52,10 +50,11 @@ color_attr_material={
     "flatShading": True
 
     }
-default_material=material((150,150,150))
-_material_table={(150,150,150):default_material}
+default_material=material((225,225,225))
+#default_material['vertexColors']=True
+_material_table={(200,200,200):default_material}
 
-def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=None,matrix=None):
+def mesh_to_three(mesh:Mesh, props:dict=None,name="MeshObject",matrix=None):
     mesh_geometry_uid=uuid.uuid4().__str__()
 
     geom={
@@ -79,36 +78,41 @@ def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=
 
 
     }
-
-    mat = mat
+    if matrix is not None:
+        matrix=list(matrix)
+    elif matrix is None and mesh.transform is not None:
+        matrix=list(mesh.transform)
+    else:
+        matrix=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    mat = mesh.material
     if mesh.colors is not None:
+        #print(mesh.colors)
         colors={
             "itemSize":int( mesh.colors.shape[-1]),
             "type": "Float32Array",
             "array": np.array(mesh.colors, dtype=float).flatten().tolist()
         }
         geom['data']['attributes']['color']=colors
-        mat = color_attr_material
+        if mat is None:
+            mat=color_attr_material
+
+        elif mat is not default_material:
+            mat['vertexColor']=True
 
     else:
-        if color is not None:
-            if color not in _material_table:
 
-                _material_table[color]=material(color)
 
-            mat=_material_table[color]
-        elif mat is not None :
-            mat=mat
-
-        else:
+        if mat is None:
             mat=default_material
+        else:
+            mat['vertexColor']=False
 
     mesh_object={
             "uuid": uuid.uuid4().__str__(),
             "type": "Mesh",
             "name": name,
             "layers": 1,
-            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] if matrix is None else list(matrix),
+            "matrix":matrix,
             "up": [0, 1, 0],
             "userData":{"properties":props if props is not None else {}},
             "geometry": mesh_geometry_uid,

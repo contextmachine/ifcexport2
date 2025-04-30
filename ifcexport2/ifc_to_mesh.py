@@ -8,7 +8,7 @@ import os
 
 import rich
 
-
+from ifcexport2.ifc_styles import build_surf_style_data
 from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh, create_group, get_property, \
     add_material, material, default_material, add_geometry, color_attr_material
 from ifcexport2.mesh import Mesh
@@ -75,7 +75,9 @@ class ConvertResult:
     success: bool
     objects: list[IRGeometryObject]
     meshes: list[Mesh]
+    materials:dict[str,dict]
     fails: ImportFailList
+
 
 
 
@@ -84,10 +86,12 @@ def convert(args: ConvertArguments) -> ConvertResult:
 
         ifc_file = ifc_loads(args.ifc_doc, is_path=False)
     else:
-        print()
+
         ifc_file=args.ifc_doc
 
-
+    surfs_styles,styled_items,elems_styles=build_surf_style_data(ifc_file)
+    print(surfs_styles)
+    print(elems_styles)
     settings = ifcopenshell.geom.settings()
     #settings.set("use-python-opencascade", not NO_OCC)
 
@@ -108,7 +112,7 @@ def convert(args: ConvertArguments) -> ConvertResult:
         geom_iterator=iterator,
         scale=args.scale,
         print_items=False,
-        excluded_types=args.excluded_types
+        excluded_types=tuple(args.excluded_types),styled_items=elems_styles,surfs_styles=surfs_styles
     )
     del iterator
     del ifc_file
@@ -117,7 +121,7 @@ def convert(args: ConvertArguments) -> ConvertResult:
 
     )
 
-    return ConvertResult(success, objects, meshes, fails)
+    return ConvertResult(success, objects, meshes, materials={mat['uuid']:mat for (cols,mat) in surfs_styles.values()}, fails=fails)
 
 
 def safe_call_fast_convert(ifc_string: str, scale: float = 1.0,
@@ -139,8 +143,11 @@ def convert_from_file_path(ifc_fp: str, scale: float = 1.0,
 
 
 def extract_color(itm):
+
     for mat in itm.geometry.materials:
+
         _color = mat.diffuse
+        #print(_color,mat)
 
         if hasattr(_color, 'a'):
 
@@ -148,9 +155,19 @@ def extract_color(itm):
         else:
             yield _color.r(), _color.g(), _color.b()
 
+def flat_verts_faces_cols(vertices,faces,fcol):
+    #print(vertices.shape,faces.shape,fcol.shape)
+    flat_indices = faces.reshape(-1)  # length 3 M
+    flat_positions = vertices[flat_indices]  # (3 M, 3)
+
+    flat_colours = np.repeat(fcol, 3, axis=0)
+    new_faces = np.arange(flat_indices.shape[0],dtype=int)
+    return flat_positions,new_faces,np.array(flat_colours,dtype=float)
+
+
 
 def parse_geom_item(
-        item: TriangulationElement, scale: float = 1.0
+        item: TriangulationElement, scale: float = 1.0,       styled_items:dict[int,int]=None,surfs_styles=None,
 ) -> Tuple[bool, IRGeometryObject, Union[Mesh, Tuple[str, str]]]:
     typ = item.type
     trx = item.transformation.matrix
@@ -159,42 +176,120 @@ def parse_geom_item(
     parent_id = item.parent_id
     context = item.context
 
-    materials_colors = np.array(list(extract_color(item)), dtype=np.float32)
+    if trx!=(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0):
+        ...
+    mat=None
+    single_material=False
+    materials_colors=None
+
+    if styled_items.get(item.id,[]) :
+
+        if len(styled_items[item.id])>1:
+            print("style",styled_items[item.id])
+            materials_colors = np.array(list(extract_color(item)), dtype=float)
+            mat=color_attr_material
+            print(len(styled_items[item.id]),styled_items[item.id])
+            single_material = False
+
+        else:
+            materials_colors,mat=surfs_styles[styled_items[item.id][0]]
+            single_material=True
+
+    else:
+
+        materials_colors = np.array(list(extract_color(item)), dtype=float)
+        if len(materials_colors)==0:
+            mat = default_material
+        elif len(materials_colors)>1:
+            mat = color_attr_material
+        else:
+            mat=default_material
+        #materials_colors = np.array([[200/255,200/255,200/255]], dtype=float)
+
+
+
     try:
         geom = item.geometry
         faces = geom.faces
         verts = geom.verts
+        if len(faces )==0 or len(verts) ==0:
+            ifc_object = IRGeometryObject(
+                id=product_id,
+                type=typ,
+                name=name,
+                context=context,
+                parent_id=parent_id,
+                mesh=None,
+                transform=trx,
+            )
+            return False, ifc_object, ("empty mesh","")
         #normals = geom.normals
-        single_color = True
 
-        verts = np.array(verts, dtype=np.float32).reshape((len(verts) // 3, 3))
+
+        verts = np.array(verts, dtype=float).flatten().reshape((len(verts) // 3, 3))
         # normals = np.array(normals, dtype=np.float32).reshape((len(normals) // 3, 3))
-        faces = np.array(faces, dtype=int).reshape((len(faces) // 3, 3))
-        # if set(geom.material_ids).__len__()==1:
-        #    single_color = True
-        #    color=materials_colors[0]
-        #    colors=np.zeros_like(verts)
-        #    colors[...,:]=color
-        #    #verts =  np.repeat(np.array(verts, dtype=np.float32).reshape((len(verts) // 3, 3)), 3, axis=0)
-        #    #normals = np.array(normals, dtype=np.float32).reshape((len(normals) // 3, 3))
-        #    #faces = np.array(faces, dtype=int).reshape((len(faces)//3,3))
-        #
+        faces = np.array(faces, dtype=int).flatten().reshape((len(faces) // 3, 3))
 
-        single_color = False
-
-        cols = materials_colors[np.array(geom.material_ids, dtype=int)]
-        ccols = cols[np.arange(faces.shape[0]).repeat(3)]
-
-        colors = np.zeros_like(verts)
-        colors[faces] = ccols.reshape((*faces.shape, 3))
-
-        msh = Mesh(
+        if materials_colors is None or len(materials_colors)==0:
+            msh = Mesh(
                 verts * scale,
                 faces=faces,
                 # color=tuple(np.array(materials_colors[0]*255,dtype=int)),
                 # normals=normals,
-                colors=colors,
+                #colors=c,
                 uid=product_id,
+                transform=trx,
+                material=mat
+            )
+        elif len(materials_colors)==1:
+
+             #color=tuple(materials_colors[0].tolist())
+
+             #colors = np.zeros_like(verts)
+             #colors[..., :] = materials_colors[0]
+
+
+
+             msh = Mesh(
+                 verts * scale,
+                 faces=faces,
+                 #color=(int(color[0]*255),int(color[1]*255),int(color[2]*255)),
+                 # normals=normals,
+                 colors=None,
+                 uid=product_id,
+                 transform=trx,
+                 material=mat
+
+
+             )
+
+        #
+        #    #verts =  np.repeat(np.array(verts, dtype=np.float32).reshape((len(verts) // 3, 3)), 3, axis=0)
+        #    #normals = np.array(normals, dtype=np.float32).reshape((len(normals) // 3, 3))
+        #    #faces = np.array(faces, dtype=int).reshape((len(faces)//3,3))
+        #
+        else:
+            #print('ccccc')
+
+            #cols = (materials_colors[np.array(geom.material_ids, dtype=int)]*255).astype(int)
+
+            ccols = materials_colors[np.array(geom.material_ids,dtype=int)]
+            #print(  max(geom.material_ids),materials_colors.shape)
+            #print(ccols)
+            v,f,c=flat_verts_faces_cols(verts,faces,ccols)
+            v, f, c=v.reshape((-1,3)),f.reshape((-1,3)),c.reshape((-1,3))
+
+            #print(c)
+
+            msh = Mesh(
+                v* scale,
+                faces=f,
+                # color=tuple(np.array(materials_colors[0]*255,dtype=int)),
+                # normals=normals,
+                colors=c,
+                uid=product_id,
+                transform=trx ,
+                material=mat
             )
 
 
@@ -219,6 +314,8 @@ def parse_geom_item(
             transform=trx,
         )
         tb = traceback.format_exc()
+        print(err)
+        print(tb)
         return False, ifc_object, (str(err), tb)
 
 
@@ -227,6 +324,7 @@ def process_ifc_geometry_items(
         scale: float,
         print_items: bool,
         excluded_types: Tuple[str, ...],
+        styled_items:dict[int,int],surfs_styles:dict
 ) -> Tuple[bool, List[IRGeometryObject], List[Mesh], ImportFailList]:
     objects: List[IRGeometryObject] = []
     meshes: List[Mesh] = []
@@ -242,7 +340,7 @@ def process_ifc_geometry_items(
             shape = geom_iterator.get()
 
             if shape.type not in excluded_types:
-                success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale)
+                success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale,styled_items=styled_items,surfs_styles=surfs_styles)
                 if success:
 
                     objects.append(attrs)
@@ -271,10 +369,12 @@ def ifc_loads(txt: str, is_path:bool=False):
 import     ifcexport2.ifc_psets
 import re
 
-def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict[int,IRGeometryObject],ifc_file:ifcopenshell.file):
+def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict[int,IRGeometryObject], materials:dict[str,dict],ifc_file:ifcopenshell.file):
 
     add_material(three_js_root, default_material)
     add_material(three_js_root,color_attr_material)
+    for i in materials.values():
+        add_material(three_js_root,i)
     root = three_js_root['object']
     roots_stack = [(root, list(h.root_elements))]
     while roots_stack:
@@ -303,22 +403,14 @@ def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict
             else:
 
                 o = geoms[obj_id]
-                if o.mesh.color is None:
-
-                   mat =default_material
-
-
-                else :
-                    mat = color_attr_material
-
 
                 obj_o ,obj_geom,obj_mat= mesh_to_three(
                     o.mesh,
                     name=props['name'],
-                    matrix=o.transform,
+
                     props=props)
 
-                obj_o['material']=mat['uuid']
+                #obj_o['material']=mat['uuid']
 
 
                 add_geometry(three_js_root, obj_geom)
@@ -330,7 +422,7 @@ def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict
 
 import ifcexport2.ifc_hierarchy
 
-def create_viewer_object(name, objects:list[IRGeometryObject],ifc_file:ifcopenshell.file,include_spatial_hierarchy:bool=True):
+def create_viewer_object(name, objects:list[IRGeometryObject],materials,ifc_file:ifcopenshell.file,include_spatial_hierarchy:bool=True):
     geoms={o.id :o for o in objects}
 
     ifc_hierarchy=ifcexport2.ifc_hierarchy.clean_hierarchy(
@@ -339,8 +431,9 @@ def create_viewer_object(name, objects:list[IRGeometryObject],ifc_file:ifcopensh
                                                  ),
         list(geoms.keys())
     )
+
     root = create_three_js_root(name,{'name':name})
-    _build(root,ifc_hierarchy,geoms,ifc_file)
+    _build(root,ifc_hierarchy,geoms=geoms,materials=materials,ifc_file=ifc_file)
 
     return root
 

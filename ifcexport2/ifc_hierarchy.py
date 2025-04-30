@@ -136,3 +136,18 @@ def clean_hierarchy(hierarchy: Hierarchy, require_objects: List[int]) -> Hierarc
     return Hierarchy(hierarchy=new_hierarchy, root_elements=new_roots)
 
 
+def simplify_hierarchy(hierarchy: Hierarchy,require_objects: List[int]):
+    orig = hierarchy.hierarchy
+    new_hierarchy = {}
+    stack=[*hierarchy.root_elements]
+
+    while True:
+        current=stack.pop()
+        children=orig.get(current)
+        if children is None:
+            continue
+        elif len(children)==1:
+            children[0]
+
+    for root in hierarchy.root_elements:
+        orig[root]

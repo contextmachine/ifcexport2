@@ -20,6 +20,7 @@ from fastapi import UploadFile, Request, BackgroundTasks, File, HTTPException
 
 import uuid
 
+from ifcexport2.step_decode import step_decode
 from ifcexport2.tasks import ifc_export, BLOBS_PATH
 
 from ifcexport2.celery_config import celery_app
@@ -71,32 +72,14 @@ async def background_upload_task(upload_id: str, file_path: str, spooled_path: s
                 existing_offset = 0
 
         # 2.2) Open final file in append mode
-        with open(file_path, "ab") as out_f:
+        with open(file_path, "wb") as out_f:
             # 2.3) Move to "existing_offset" in the spooled file
             with open(spooled_path, "rb") as in_f:
+
                 # skip existing_offset in the spooled file
-                in_f.seek(existing_offset)
 
-                bytes_written = existing_offset
-                chunk_size = 1024 * 1024  # 1MB
 
-                while True:
-                    chunk = in_f.read(chunk_size)
-                    if not chunk:
-                        break
-                    out_f.write(chunk)
-                    bytes_written += len(chunk)
-
-                    # update progress
-                    if total_size > 0:
-                        percent = round((bytes_written / total_size) * 100, 2)
-                    else:
-                        # if unknown total_size, treat as done or estimate
-                        percent = 100
-
-                    upload_data.progress = percent
-                    upload_statuses[upload_id]=                    upload_data
-
+                out_f.write(step_decode(in_f.read()).encode("utf-8"))
 
         # done
         upload_data.status = "success"

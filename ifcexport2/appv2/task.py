@@ -49,7 +49,7 @@ def ifc_export(data:dict, metric_manager:Optional[MetricManager]=None):
                                  settings=dt['settings'], name=dt['name']))
 
         print('convert success')
-        root = create_viewer_object(dt['name'], result.objects, ifc_file,include_spatial_hierarchy=False)
+        root = create_viewer_object(dt['name'], result.objects,materials=result.materials, ifc_file=ifc_file,include_spatial_hierarchy=False)
 
         key=f'{BUCKET_PREFIX}/{BLOBS_PATH.name}/{dt["name"]}-{upload_id}.json'
         with open(BLOBS_PATH/f'{dt["name"]}-{upload_id}.json',"w") as f:

@@ -12,4 +12,6 @@ class Mesh:
     colors:Optional[NDArray]=None
     color:Optional[tuple[int,int,int]]=None
     uid:int|str=0
+    transform:Optional[list]=None
+    material:Optional[dict]=None
 
