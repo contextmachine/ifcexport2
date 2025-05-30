@@ -1,3 +1,6 @@
+from typing import NamedTuple
+
+
 def get_ifc_elements(model)->list:
     return model.by_type('IfcElement')
 def get_ifc_elements_id(model)->list[int]:
@@ -5,15 +8,22 @@ def get_ifc_elements_id(model)->list[int]:
 
 
 
+
 def build_product_definitions_to_shapes(model):
+    shapes_dct=dict()
     prod_to_shapes = dict()
     for shape_repr in model.by_type('IfcShapeRepresentation'):
         for prodshape in shape_repr.OfProductRepresentation:
             if prodshape.id() not in prod_to_shapes:
-                prod_to_shapes[prodshape.id()] = [item.id() for item in shape_repr.Items]
-            else:
-                prod_to_shapes[prodshape.id()].extend((item.id() for item in shape_repr.Items))
-    return prod_to_shapes
+                prod_to_shapes[prodshape.id()] =[]
+            for item in shape_repr.Items:
+                shape_id=item.id()
+                shapes_dct[shape_id]=item
+
+                prod_to_shapes[prodshape.id()].append(shape_id)
+
+    return prod_to_shapes,shapes_dct
+
 
 def build_elements_to_product_definitions(model):
     dct = dict()
@@ -29,8 +39,12 @@ def build_elements_to_product_definitions(model):
 
     return dct
 
+class ShapeItem(NamedTuple):
+    shape_id: int
+    matrix:list
 
-def get_shapes_by_element(el, elements_to_product_definitions,product_definitions_to_shapes , model):
+
+def get_shapes_by_element(el, elements_to_product_definitions, product_definitions_to_shapes , model):
 
     return [[model.by_id(i) for i in product_definitions_to_shapes[prod_def_id]] for prod_def_id in elements_to_product_definitions[el.id() if hasattr(el,'id') else el]]
 def trav_getitem(dct,key_or_list,default=None):
