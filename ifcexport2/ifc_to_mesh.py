@@ -8,7 +8,8 @@ import os
 
 import rich
 
-from ifcexport2.ifc_styles import build_surf_style_data
+from ifcexport2.ifc_elements import get_elem_to_shapes
+from ifcexport2.ifc_styles import build_surf_style_data, ColorData
 from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh, create_group, get_property, \
     add_material, material, default_material, add_geometry, color_attr_material
 from ifcexport2.mesh import Mesh
@@ -88,10 +89,9 @@ def convert(args: ConvertArguments) -> ConvertResult:
     else:
 
         ifc_file=args.ifc_doc
+    
+    el_to_shapes,surface_styles=get_elem_to_shapes(ifc_file), build_surf_style_data(ifc_file)
 
-    surfs_styles,styled_items,elems_styles=build_surf_style_data(ifc_file)
-    print(surfs_styles)
-    print(elems_styles)
     settings = ifcopenshell.geom.settings()
     #settings.set("use-python-opencascade", not NO_OCC)
 
@@ -106,13 +106,13 @@ def convert(args: ConvertArguments) -> ConvertResult:
                                               geometry_library=args.backend)
     else:
         iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=max(args.threads - 1, 1))
-
+   
     # Process geometry items
     success, objects, meshes, fails = process_ifc_geometry_items(
         geom_iterator=iterator,
         scale=args.scale,
         print_items=False,
-        excluded_types=tuple(args.excluded_types),styled_items=elems_styles,surfs_styles=surfs_styles
+        excluded_types=tuple(args.excluded_types), el_to_shapes=el_to_shapes,surface_styles=surface_styles,model=ifc_file
     )
     del iterator
     del ifc_file
@@ -165,9 +165,10 @@ def flat_verts_faces_cols(vertices,faces,fcol):
     return flat_positions,new_faces,np.array(flat_colours,dtype=float)
 
 
-
+from ifcexport2.ifc_styles import SurfaceStylesData
+from ifcexport2.ifc_elements import get_element_styles
 def parse_geom_item(
-        item: TriangulationElement, scale: float = 1.0,       styled_items:dict[int,int]=None,surfs_styles=None,
+        item: TriangulationElement, scale: float = 1.0,   el_to_shapes:dict[int,list[int]]=None,styles_data:SurfaceStylesData=None
 ) -> Tuple[bool, IRGeometryObject, Union[Mesh, Tuple[str, str]]]:
     typ = item.type
     trx = item.transformation.matrix
@@ -181,26 +182,33 @@ def parse_geom_item(
     mat=None
     single_material=False
     materials_colors=None
-
-    if styled_items.get(item.id,[]) :
-
-        if len(styled_items[item.id])>1:
-            print("style",styled_items[item.id])
-            materials_colors = np.array(list(extract_color(item)), dtype=float)
+    
+    item_styles,_=get_element_styles(product_id, el_to_shapes,styles_data)
+    
+    mat=default_material
+  
+    if item_styles:
+        
+        if len(item_styles)>1:
+            print("style composite",item_styles)
+            
+            materials_colors =[s.shading.color_data.color for s in item_styles]
             mat=color_attr_material
-            print(len(styled_items[item.id]),styled_items[item.id])
+            
             single_material = False
-
-        else:
-            materials_colors,mat=surfs_styles[styled_items[item.id][0]]
+        elif len(item_styles)==1:
+       
+            materials_colors,mat=[item_styles[0].shading.color_data.color],item_styles[0].shading.material
             single_material=True
-
+        else:
+            materials_colors,mat=[ColorData(decimal=default_material['color'])],default_material
+    
     else:
 
         materials_colors = np.array(list(extract_color(item)), dtype=float)
         if len(materials_colors)==0:
             mat = default_material
-        elif len(materials_colors)>1:
+        elif len(materials_colors)>=1:
             mat = color_attr_material
         else:
             mat=default_material
@@ -324,7 +332,7 @@ def process_ifc_geometry_items(
         scale: float,
         print_items: bool,
         excluded_types: Tuple[str, ...],
-        styled_items:dict[int,int],surfs_styles:dict
+        el_to_shapes:dict[int,list[int]],surface_styles:SurfaceStylesData,model
 ) -> Tuple[bool, List[IRGeometryObject], List[Mesh], ImportFailList]:
     objects: List[IRGeometryObject] = []
     meshes: List[Mesh] = []
@@ -338,16 +346,26 @@ def process_ifc_geometry_items(
                 print(f"Reading IFC: {i}", flush=True, end="\r")
             i += 1
             shape = geom_iterator.get()
-
+            
             if shape.type not in excluded_types:
-                success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale,styled_items=styled_items,surfs_styles=surfs_styles)
-                if success:
-
-                    objects.append(attrs)
-                    meshes.append(mesh_or_tb)
-                    j += 1
-                else:
-                    fails.append(IfcFail(item=attrs, tb=mesh_or_tb))
+                in_model = True
+                try:
+                    model.by_id(shape.id)
+                except RuntimeError as err:
+                    in_model=False
+                    fails.append(IfcFail(item= dict(id=shape.id), tb=str(err)))
+                    continue
+                if in_model:
+                   
+                    objects.append(shape)
+                    success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale,el_to_shapes=el_to_shapes,styles_data=surface_styles)
+                    if success:
+    
+                        objects.append(attrs)
+                        meshes.append(mesh_or_tb)
+                        j += 1
+                    else:
+                        fails.append(IfcFail(item=attrs, tb=mesh_or_tb))
 
             if not geom_iterator.next():
                 break

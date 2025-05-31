@@ -141,7 +141,7 @@ if __name__ =='__main__':
         try:
                 update_consumer_info('work', current_task=task_id)
 
-                result =   json.dumps(ifc_export(task_data))
+                result =   ujson.dumps(ifc_export(task_data))
 
                 # Update the Redis hash with success
                 r.hset(task_id, mapping={
