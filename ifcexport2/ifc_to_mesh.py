@@ -182,7 +182,7 @@ def parse_geom_item(
     single_material=False
     materials_colors=None
 
-    if styled_items.get(item.id,[]) :
+    if styled_items.get(item.id) is not None :
 
         if len(styled_items[item.id])>1:
             print("style",styled_items[item.id])
@@ -196,7 +196,7 @@ def parse_geom_item(
             single_material=True
 
     else:
-
+        
         materials_colors = np.array(list(extract_color(item)), dtype=float)
         if len(materials_colors)==0:
             mat = default_material
@@ -234,12 +234,11 @@ def parse_geom_item(
             msh = Mesh(
                 verts * scale,
                 faces=faces,
-                # color=tuple(np.array(materials_colors[0]*255,dtype=int)),
                 # normals=normals,
                 #colors=c,
                 uid=product_id,
                 transform=trx,
-                material=mat
+                material=default_material
             )
         elif len(materials_colors)==1:
 
@@ -258,7 +257,7 @@ def parse_geom_item(
                  colors=None,
                  uid=product_id,
                  transform=trx,
-                 material=mat
+                 material=material(tuple(np.array(materials_colors[0]*255,dtype=int).tolist()))
 
 
              )
