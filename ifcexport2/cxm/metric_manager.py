@@ -1,3 +1,5 @@
+import json
+import logging
 import os
 import threading
 import time
@@ -10,6 +12,9 @@ from typing import TypedDict, Literal, Optional
 import psutil
 import ujson
 import redis
+
+from ifcexport2.api.settings import DEPLOYMENT_NAME
+
 
 class ProcessMemoryInfo(TypedDict):
     rss:int
@@ -67,11 +72,12 @@ def get_process_stats(pid=None)->ProcessStats:
 class MetricManager:
     __allowed_key_types=bytes , memoryview , str , int , float
     __allowed_val_types = bytes, memoryview, str, int, float
+    
     def __init__(self,redis_client:redis.Redis, stream_name:str, app_instance_id:str=None, delay:float=1.):
         self.delay=delay
         self._stop_signal=False
         self._redis_client=redis_client
-
+        self.logger=logging.getLogger(DEPLOYMENT_NAME)
         self._app_context_stream=stream_name
 
 
@@ -96,6 +102,7 @@ class MetricManager:
     def update_app_context(self, msg:dict):
         _msg=dict(**msg)
         if 'app_instance' in msg.keys():
+            
             warnings.warn(f'The "app_instance" key is reserved and will be removed!')
             del _msg['app_instance']
         for f in fields(ProcessStats):
@@ -125,18 +132,22 @@ class MetricManager:
 
             self._update_process_stats()
             print(self._app_context)
+            self.logger.info(json.dumps(self._app_context))
             if self._stop_signal:
 
 
                 self._redis_client.xadd(self._app_context_stream, self._app_context)
-                print("stopping ...")
+                self._app_context['status']='stopping'
+                self.logger.info(json.dumps(self._app_context))
                 break
 
 
             self._redis_client.xadd(self._app_context_stream, self._app_context)
 
             time.sleep(self.delay)
-        print("stop")
+        
+        self.logger.info(json.dumps(self._app_context))
+        
 
     def __enter__(self):
         self._proc_thread.start()
@@ -147,10 +158,13 @@ class MetricManager:
             self._app_context['error']:ujson.dumps(exception_data(exc_val))
             self._stop()
             self._proc_thread.join(self.delay)
+            self.logger.info(json.dumps(self._app_context))
             raise exc_val
         if self._proc_thread.is_alive():
             self._app_context['status'] = 'complete'
             self._stop()
+          
             self._proc_thread.join(self.delay)
+            self.logger.info(json.dumps(self._app_context))
 
 
