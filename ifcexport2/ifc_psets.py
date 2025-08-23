@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ifcopenshell
+import ifcopenshell.entity_instance
+from ifcopenshell.entity_instance import entity_instance
 import ifcopenshell.util.element
 from typing import Any, Dict, AnyStr
 import re
@@ -16,6 +18,9 @@ def psets_flatten(psets:Psets)->FlatProps:
     flat_props=dict()
     for name, pset in psets.items():
         for key, val in pset.items():
+            if isinstance(val,entity_instance):
+                #print(val.wrappedValue,type(val.wrappedValue))
+                val=val.wrappedValue
             flat_props[f'{name}/{key}'] = val
 
     return flat_props

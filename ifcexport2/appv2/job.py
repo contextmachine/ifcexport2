@@ -18,7 +18,9 @@ if __name__ =='__main__':
         # BRPOP will block until there is an item in "task_queue".
         # It returns a tuple: (queue_name, item)
         # where 'item' is the JSON we initially pushed.
-
+        if int(redis_client.llen(f"{DEPLOYMENT_NAME}_task_queue"))==0:
+            exit(0)
+        
         queue_data = redis_client.brpoplpush(f"{DEPLOYMENT_NAME}_task_queue", f"{DEPLOYMENT_NAME}:tasks:processing", 0)
         print(queue_data)
         attempts = 0

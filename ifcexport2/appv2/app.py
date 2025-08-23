@@ -171,7 +171,7 @@ async def upload_ifc_endpoint(
     background_tasks.add_task(
         background_upload_task, upload_id, final_path, spooled_path
     )
-    return TaskStatus(**{"id": upload_id, "status": "pending"})
+    return TaskStatus(**{"id": upload_id, "status": "success"})
 
 
 @app.get(

@@ -142,7 +142,12 @@ class MetricManager:
         self._proc_thread.start()
         return self
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_val is not None:
+        if exc_type is SystemExit and exc_val.code==0:
+            self._app_context['status'] = 'complete'
+            self._stop()
+            self._proc_thread.join(0)
+         
+        elif exc_val is not None:
             self._app_context['status']='error'
             self._app_context['error']:ujson.dumps(exception_data(exc_val))
             self._stop()

@@ -62,6 +62,7 @@ def ifc_export(data:dict, metric_manager:Optional[MetricManager]=None):
         del ifc_file
         del result
         gc.collect()
+        
 
 
         return {'url':key,'name': name}
