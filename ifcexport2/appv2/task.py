@@ -42,7 +42,7 @@ class IfcExportExtrasData(TypedDict):
 class ResultData(TypedDict):
     url: str
     name: str
-    extras: IfcExportExtrasData
+    extras: dict
 
 
 class TaskData(TypedDict):
@@ -69,7 +69,7 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
         
         upload_id=dt["upload_id"]
         name=Path(dt['fname']).stem
-        extras=IfcExportExtras(**{**default_extras_factory(),**dt.get('extras',{})})
+        extras={**default_extras_factory(),**dt.get('extras',{})}
         
         if volume_path is not None:
             fp=(Path(volume_path)/ dt["fp"]   ).absolute().__str__()
@@ -81,8 +81,8 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
 
         print(f'success')
         result=convert(
-                ConvertArguments(ifc_file, scale=extras.scale, excluded_types=extras.excluded_types, threads=extras.threads,
-                                 settings=extras.settings, name=name))
+                ConvertArguments(ifc_file, scale=extras['scale'], excluded_types=extras['excluded_types'], threads=extras['threads'],
+                                 settings=extras['settings'], name=name))
         blob_path=Path(volume_path)/blobs_prefix/f'{name}-{upload_id}.json'
         
         blob_url_path=blob_path.absolute().relative_to(
@@ -106,7 +106,7 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
         
 
 
-        return {'url':key,'name': name, 'extras':IfcExportExtrasData(**asdict(extras))}
+        return {'url':key,'name': name, 'extras':extras}
 
 
 
