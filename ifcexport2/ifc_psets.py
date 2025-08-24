@@ -19,7 +19,6 @@ def psets_flatten(psets:Psets)->FlatProps:
     for name, pset in psets.items():
         for key, val in pset.items():
             if isinstance(val,entity_instance):
-                #print(val.wrappedValue,type(val.wrappedValue))
                 val=val.wrappedValue
             flat_props[f'{name}/{key}'] = val
 

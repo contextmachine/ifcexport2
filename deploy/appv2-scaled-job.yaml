@@ -1,0 +1,56 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: ifc-converter-job
+spec:
+  # Keep ONE idle Job around at all times
+  minReplicaCount: 0               # ⇒ “idle Job” invariant
+  pollingInterval: 5               # seconds between Redis queries
+
+  # Source of truth: your Redis list
+  triggers:
+  - type: redis
+    metadata:
+      address: ifcupload-redis-service.default.svc.cluster.local:6379
+      listName: ifc-export_task_queue
+      listLength: "1"              # create 1 Job per msg ≥ 1
+
+  # Template for each Job
+  jobTargetRef:
+    ttlSecondsAfterFinished: 20   # clean up after 10 min
+    backoffLimit: 1                # retry once on failure
+    template:
+      metadata:
+        labels: {app: ifc-converter-job}
+      spec:
+        restartPolicy: Never
+        containers:
+          - name:  ifc-converter-job
+            image: ghcr.io/contextmachine/ifcexport2:master
+            volumeMounts:
+            - mountPath: /app/volume
+              name: vol
+
+            env:
+              - name: REDIS_URL        # worker uses this to update status
+                value: "redis://ifcupload-redis-service.default.svc.cluster.local:6379/0"
+
+              - name: VOLUME_PATH
+                value: "/app/volume"
+              - name: BUCKET_PREFIX
+                valueFrom:
+                        secretKeyRef:
+                          name: ifcupload-secrets
+                          key: BUCKET_PREFIX
+            command: [ "python",  "ifcexport2/appv2/job.py" ]
+            resources:               # generous but finite
+                requests:
+                  memory: "6Gi"
+                  cpu: "16"
+                limits:                # let the big files run
+                  memory: "16Gi"
+        volumes:
+            - name: vol
+              persistentVolumeClaim:
+                claimName: ifcuploader-csi-s3-pvc-dynamic
+                readOnly: false
