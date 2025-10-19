@@ -50,16 +50,18 @@ REDIS_PASSWORD=os.getenv("REDIS_PASSWORD",None)
 def from_redis( data: dict):
     
     return {k: ujson.loads(v) for k, v in data.items()}
+
+
+def to_redis(data: dict):
+    return {k: ujson.dumps(v,ensure_ascii=False) for k, v in data.items()}
 def get_task(task_id: str):
-    res = redis_client.hgetall(task_id)
-    if res is None:
-        return None
+
     return from_redis(redis_client.hgetall(task_id))
 
 
 def set_task(task_id:str,task: dict):
     
-    return bool(redis_client.hset(task_id, mapping={k: ujson.dumps(v) for k, v in task.items()}
+    return bool(redis_client.hset(task_id, mapping=to_redis(task)
                                   )
                 )
 
@@ -103,69 +105,69 @@ if __name__ =='__main__':
     from ifcexport2.cxm.metric_manager import MetricManager, exception_data
 
 
-    with MetricManager(redis_client, f'{DEPLOYMENT_NAME}:jobs') as metric_manager:
-        # BRPOP will block until there is an item in "task_queue".
-        # It returns a tuple: (queue_name, item)
-        # where 'item' is the JSON we initially pushed.
-        redis_queue=f"{DEPLOYMENT_NAME}-task-queue"
-        if int(redis_client.llen(redis_queue))==0:
-            exit(0)
+
+    # BRPOP will block until there is an item in "task_queue".
+    # It returns a tuple: (queue_name, item)
+    # where 'item' is the JSON we initially pushed.
+    redis_queue=f"{DEPLOYMENT_NAME}-task-queue"
+    if int(redis_client.llen(redis_queue))==0:
+        exit(0)
+    
+    task_id = redis_client.brpoplpush(redis_queue, f"{DEPLOYMENT_NAME}:tasks:processing", 0)
+    print(task_id)
+    attempts = 0
+    # queue_data is something like: (b'task_queue', b'{"task_id":"...","data":"..."}')
+    if task_id:
+        task_item =  get_task(task_id)
+        rich.print(task_item)
      
-        task_id = redis_client.brpoplpush(redis_queue, f"{DEPLOYMENT_NAME}:tasks:processing", 0)
-        print(task_id)
-        attempts = 0
-        # queue_data is something like: (b'task_queue', b'{"task_id":"...","data":"..."}')
-        if task_id:
-            task_item =  TaskData(**get_task(task_id))
-            rich.print(task_item)
-         
 
-           
-           
+        print(f"Consumer picked up task {task_id} with data: {task_item}")
 
-            print(f"Consumer picked up task {task_id} with data: {task_item}")
+    else:
+        print(f"NO TASK ID {task_id} ")
+        raise ValueError(f"NO TASK ID {task_id} ")
+    
+    try:
+        #metric_manager.update_app_context({'status':'work', 'task_id':task_id})
 
-
-        try:
-            metric_manager.update_app_context({'status':'work', 'task_id':task_id})
-
-            result:ResultData =  ifc_export(task_item,volume_path=VOLUME_PATH,blobs_prefix='blobs',metric_manager=metric_manager)
-           
-  
+        result=  ifc_export(task_item,volume_path=VOLUME_PATH,blobs_prefix='blobs',metric_manager=None)
+        
+        task_item['result']=result
+        task_item['status']='success'
+ 
+        # Update the Redis hash with success
+    
+        redis_conn.hset(task_id,mapping=to_redis(task_item))
+    
+        print(f"Task {task_id} successfully completed: {result}")
+    
+    
+    except OSError as err:
+            print(f"Task {task_id} failed with os error: {err}")
+            task_item['status']='error'
+            task_item['detail']=exception_data(err)
+      
+            redis_conn.hset(task_id,mapping=to_redis(task_item))
             
-            # Update the Redis hash with success
-     
-            redis_conn.hset(task_id,
-                            mapping={'status': 'success',
-                                     'result': ujson.dumps(result, ensure_ascii=False)})
-        
-        
-        
-        
-        
-        
-        
-        except OSError as err:
-                task_item['status']='error'
-                task_item['detail']=json.dumps( exception_data(err))
-                redis_conn.hset(task_id,mapping={'status':'error','detail':ujson.dumps( exception_data(err),ensure_ascii=False)})
-         
-                
-         
-                
 
-                raise err
-        except Exception as err:
 
-                # In case of any error, update Redis with error status
-                redis_conn.hset(task_id, mapping={'status': 'error',
-                                                  'detail': ujson.dumps(exception_data(err), ensure_ascii=False)})
-        
-     
+    
+            
 
-                print(f"Task {task_id} failed with error: {err}")
+            raise err
+    except Exception as err:
+            print(f"Task {task_id} failed with error: {err}")
+            task_item['status'] = 'error'
+            task_item['detail'] = exception_data(err)
+            # In case of any error, update Redis with error status
+            redis_conn.hset(task_id, mapping=to_redis(task_item))
+    
+    
 
-                raise err
+
+
+            raise err
 
 
 

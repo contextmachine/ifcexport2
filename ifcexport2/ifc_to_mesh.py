@@ -288,29 +288,17 @@ def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict
             additional_props = {}
             if current_root_id is not None:
                 additional_props={"parent_id":current_root_id}
-
-
             props=ifcexport2.ifc_psets.extract_props(obj_id,ifc_file,additional_props)
-
             if len(obj_childs) > 0:
 
                 obj_o = create_group(props['name'], props)
-
-
-
                 roots_stack.append((obj_o, obj_childs))
-
             else:
-
                 o = geoms[obj_id]
-                if o.mesh.color is None:
-
+                if o.mesh.colors is None:
                    mat =default_material
-
-
                 else :
                     mat = color_attr_material
-
 
                 obj_o ,obj_geom,obj_mat= mesh_to_three(
                     o.mesh,
@@ -319,10 +307,7 @@ def _build(three_js_root:dict, h: ifcexport2.ifc_hierarchy.Hierarchy, geoms:dict
                     props=props)
 
                 obj_o['material']=mat['uuid']
-
-
                 add_geometry(three_js_root, obj_geom)
-
             current_root['children'].append(obj_o)
 
 
