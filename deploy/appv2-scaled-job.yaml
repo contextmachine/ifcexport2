@@ -9,15 +9,15 @@ spec:
 
   # Source of truth: your Redis list
   triggers:
-  - type: redis
-    metadata:
+  - metadata:
       address: ifcupload-redis-service.default.svc.cluster.local:6379
-      listName: ifc-export_task_queue
-      listLength: "1"              # create 1 Job per msg ≥ 1
+      listLength: "1"
+      listName: ifc-export-task-queue
+    type: redis
 
   # Template for each Job
   jobTargetRef:
-    ttlSecondsAfterFinished: 20   # clean up after 10 min
+    ttlSecondsAfterFinished: 5  # clean up after 10 min
     backoffLimit: 1                # retry once on failure
     template:
       metadata:
@@ -31,26 +31,33 @@ spec:
             - mountPath: /app/volume
               name: vol
 
-            env:
-              - name: REDIS_URL        # worker uses this to update status
-                value: "redis://ifcupload-redis-service.default.svc.cluster.local:6379/0"
 
-              - name: VOLUME_PATH
-                value: "/app/volume"
-              - name: BUCKET_PREFIX
-                valueFrom:
-                        secretKeyRef:
-                          name: ifcupload-secrets
-                          key: BUCKET_PREFIX
+            env:
+            - name: REDIS_URL
+              value: redis://ifcupload-redis-service.default.svc.cluster.local:6379/0
+            - name: VOLUME_PATH
+              value: /app/volume
+            - name: BUCKET_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  key: BUCKET_PREFIX
+                  name: ifcupload-secrets
+
             command: [ "python",  "ifcexport2/appv2/job.py" ]
             resources:               # generous but finite
-                requests:
-                  memory: "6Gi"
-                  cpu: "16"
-                limits:                # let the big files run
-                  memory: "16Gi"
+              requests:
+                cpu: "16"
+                memory: 8Gi
+            nodeSelector:
+              workload: heavy-jobs
+            restartPolicy: Never
+            tolerations:
+            - effect: NoSchedule
+              key: workload
+              operator: Equal
+            value: heavy-jobs
         volumes:
-            - name: vol
-              persistentVolumeClaim:
-                claimName: ifcuploader-csi-s3-pvc-dynamic
-                readOnly: false
+        - name: vol
+          persistentVolumeClaim:
+            claimName: ifcuploader-csi-s3-pvc-dynamic
+            readOnly: false
