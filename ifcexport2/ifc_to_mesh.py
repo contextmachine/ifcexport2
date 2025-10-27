@@ -106,6 +106,7 @@ backend=None,
     used_settings = ifcopenshell.geom.settings()
     if threads is None:
         threads = multiprocessing.cpu_count() - 1
+    threads=int(threads)
     threads = max(threads, 1)
     for k, v in settings.items():
         used_settings.set(getattr(used_settings, k), v)
