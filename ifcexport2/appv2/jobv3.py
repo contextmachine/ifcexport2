@@ -45,7 +45,7 @@ from urllib.parse import urlparse
 
 REDIS_HOST, REDIS_PORT, REDIS_DB= redis_urlparse(REDIS_URL)
 REDIS_PASSWORD=os.getenv("REDIS_PASSWORD",None)
-
+NUM_THREADS=os.getenv("NUM_THREADS",None)
 
 def from_redis( data: dict):
     
@@ -67,7 +67,7 @@ def set_task(task_id:str,task: dict):
 
 if __name__ =='__main__':
     import json
-
+    
 
     from ifcexport2.appv2.task import ifc_export, ResultData, TaskData
     
@@ -130,8 +130,8 @@ if __name__ =='__main__':
     
     try:
         #metric_manager.update_app_context({'status':'work', 'task_id':task_id})
-
-        result=  ifc_export(task_item,volume_path=VOLUME_PATH,blobs_prefix='blobs',metric_manager=None)
+        from ifcexport2.settings import settings
+        result=  ifc_export(task_item,volume_path=VOLUME_PATH,blobs_prefix='blobs',threads=NUM_THREADS,settings=settings,metric_manager=None)
         
         task_item['result']=result
         task_item['status']='success'
@@ -165,7 +165,7 @@ if __name__ =='__main__':
     
     
 
-
+            
 
             raise err
 

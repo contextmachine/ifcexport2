@@ -67,14 +67,11 @@ class ConvertResult:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ConvertArguments:
-    ifc_doc: str|Any
-    backend: Literal['cgal','cgal-simple','opencascade'] | None = None if NO_OCC else "opencascade"
-    scale: float = 1.0
     excluded_types: list[str] = dataclasses.field(default_factory=lambda :["IfcSpace","IfcOpeningElement"])
-    threads: int = min(os.cpu_count(), 4)
-    settings: dict = dataclasses.field(default_factory=lambda: {**settings_dict})
     name: str = "Model",
-    is_file_path:bool=False
+    target_units:Optional[str]=None
+    
+    
 
 
 
@@ -85,46 +82,52 @@ from ifcopenshell.util.unit import convert_file_length_units, convert_unit
 from ifcopenshell.util.unit import convert as ifcopsh_convert
 OUTPUT_UNITS = "MILLIMETER"
 def convert(
+        ifc_file:ifcopenshell.file,
     args: ConvertArguments,
+        settings: dict = None,
     threads=None,
     verbose=False,
-    target_units=OUTPUT_UNITS,
+backend=None,
     
 ) -> ConvertResult:
-    ifc_file = ifc_loads(  args.ifc_doc,is_path=True
-    )
-  
-    info = preprocess_ifc(ifc_file,args.excluded_types)
+    
+    if settings is None:
+        if verbose:
+            rich.print(f"Using default settings.")
+        settings={**settings_dict}
+        if verbose:
+            rich.print(settings)
+    info = preprocess_ifc(ifc_file, args.excluded_types)
     print(info)
-    #ifc_file = convert_file_length_units(ifc_file, target_units)
-    settings = ifcopenshell.geom.settings()
+    if args.target_units is not None:
+        ifc_file = convert_file_length_units(ifc_file, args.target_units)
+        info = preprocess_ifc(ifc_file, args.excluded_types)
+        print('info new',info)
+    used_settings = ifcopenshell.geom.settings()
     if threads is None:
         threads = multiprocessing.cpu_count() - 1
     threads = max(threads, 1)
-    for k, v in args.settings.items():
-        settings.set(getattr(settings, k), v)
-    settings.set("convert-back-units", True)
+    for k, v in settings.items():
+        used_settings.set(getattr(used_settings, k), v)
+    #used_settings.set("convert-back-units", True)
     if verbose:
-        print(f"Using {threads} threads for processing.")
-        print(f"settingds:\n{settings}")
-    if args.backend is not None:
+        rich.print(f"Using {threads} threads for processing.")
+        rich.print(f"settings:\n{used_settings}")
+    if backend is not None:
         iterator = ifcopenshell.geom.iterator(
-            settings,
+            used_settings,
             ifc_file,
             num_threads=threads,
-            geometry_library=args.backend,
+            geometry_library=backend,
         )
     else:
-        iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=threads)
+        iterator = ifcopenshell.geom.iterator(used_settings, ifc_file, num_threads=threads)
     itr = process_ifc_geometry_items(
         geom_iterator=iterator,
         excluded_types=args.excluded_types,
     
     )
     if verbose:
-
-  
-  
         total = info.product_count
         # --- pre-count only metadata (very fast, no geometry)
 
@@ -326,11 +329,13 @@ def process_ifc_geometry_items(
               
                 if success:
                     yield obj
+                else:
+                    rich.print(f'[red][bold]import fail: {obj}[/bold][/red]')
                 
         return None
     else:
-        print('not initialized')
-
+        rich.print('[red][bold]geometry iterator are not initialized![/bold][/red]')
+        return None
 
 
 def ifc_loads(txt: str, is_path:bool=False):
@@ -417,12 +422,13 @@ def cli_export(
     input_file: Path,
     output_prefix: Path,
     output_format:IfcExportCompat,
-    scale: float,
     exclude: tuple,
     threads: int,
     print_items: bool,
-    no_save_fails: bool,
     json_output: bool,
+        target_units:str=None,
+        
+        **kwargs
 ):
     """
     Process an IFC file to extract geometric meshes and associated data.
@@ -441,22 +447,22 @@ def cli_export(
     # Determine output prefix
     output_prefix = output_prefix if output_prefix is not None else input_file.with_suffix("")
 
-    save_fails = not no_save_fails
+   
 
     # Open the IFC file
    
-        # ifc_file = ifcopenshell.open(str(input_file))
+    ifc_file = ifcopenshell.open(str(input_file))
   
 
     # Create geometry iterator
     # (Assuming `safe_call_fast_convert` and `settings_dict` are defined elsewhere)
 
-    result = convert(ConvertArguments(      input_file,
+    result = convert(ifc_file,ConvertArguments(
       
          
             excluded_types=list(exclude),
-            threads=threads,
-            settings=settings_dict,name=input_file.stem),
+           
+           name=input_file.stem,target_units=target_units), settings=settings_dict,
                      threads=threads,verbose=True
                      
         )
@@ -516,19 +522,7 @@ def cli_export(
     #     print(f"Error writing IFC DB file: {e}", file=sys.stderr)
 
     # Write fails to JSON if requested
-    if save_fails:
-        fails_output_file = output_prefix.with_suffix(".fails.json")
-        try:
-            with fails_output_file.open("w") as f:
-                fails_serializable = [{"item": asdict(fail.item), "traceback": fail.tb} for fail in fails]
-                
-                ujson.dump(fails_serializable, f, ensure_ascii=False)
-            output_files.append(fails_output_file)
-            if print_items:
-                print(f"{fails_output_file} saved.")
-
-        except Exception as e:
-            print(f"Error writing fails file: {e}", file=sys.stderr)
+  
 
     if print_items:
         print("Processing completed successfully.")

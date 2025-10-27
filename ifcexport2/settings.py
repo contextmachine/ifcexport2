@@ -9,7 +9,7 @@ ifcopenshell_default_settings_dict = settings=dict(
     PRECISION=1e-7,
     VALIDATE=False,
     ELEMENT_HIERARCHY=True,
-    CONVERT_BACK_UNITS=False,
+    CONVERT_BACK_UNITS=True,
     BUILDING_LOCAL_PLACEMENT=True,
     SITE_LOCAL_PLACEMENT=True,
 )

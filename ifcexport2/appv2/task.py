@@ -26,17 +26,14 @@ if not BLOBS_PATH.exists():
 
 @dataclasses.dataclass
 class IfcExportExtras:
-    scale: float=1.
     excluded_types: list[str]= dataclasses.field(default_factory=lambda :list(('IfcSpace',)))
-    threads:int=dataclasses.field(default_factory=lambda :max(mp.cpu_count()-4,1))
-    settings:dict[str, Any]=dataclasses.field(default_factory=dict)
+    target_units:Optional[str]=None
+    
 
 
 class IfcExportExtrasData(TypedDict):
-    scale: Optional[float]
     excluded_types: Optional[list[str]]
-    threads:Optional[int]
-    settings:Optional[dict[str, Any]]
+    target_units:Optional[str]
 
 
 class ResultData(TypedDict):
@@ -58,7 +55,7 @@ class TaskData(TypedDict):
   
 
 
-def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metric_manager: Optional[MetricManager]=None, default_extras_factory=lambda: asdict(IfcExportExtras()))->ResultData:
+def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metric_manager: Optional[MetricManager]=None, threads=None, settings:dict[str,Any]=None)->ResultData:
         dt = data
         #if data.get('is_file_path',False):
         #    with open(data['fp'],'rb' ) as f:
@@ -66,11 +63,13 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
         #
         #        dt['ifc_string'] =f.read().decode('utf-8')
         #else:
-        
+        if settings is None:
+            settings={**settings_dict}
         upload_id=dt["upload_id"]
         name=Path(dt['fname']).stem
-        extras={**default_extras_factory(),**dt.get('extras',{})}
-        
+        extras:IfcExportExtrasData=IfcExportExtrasData(**dt.get('extras',{}))
+        excluded_types=extras.get('excluded_types',[])
+        target_units=extras.get('target_units',None)
         if volume_path is not None:
             fp=(Path(volume_path)/ dt["fp"]   ).absolute().__str__()
         else:
@@ -80,9 +79,16 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
         ifc_file=ifcopenshell.open( fp)
 
         print(f'success')
-        result=convert(
-                ConvertArguments(fp,  excluded_types=extras['excluded_types'], threads=extras['threads'],
-                                 settings=settings_dict, name=name),threads=extras['threads'],verbose=True)
+        result=convert( ifc_file,
+                ConvertArguments(
+                    excluded_types=excluded_types,
+                    target_units=target_units,
+                    name=name
+                ),
+                        settings=settings,
+                        threads=threads,
+                        verbose=True
+                        )
         blob_path=Path(volume_path)/blobs_prefix/f'{name}-{upload_id}.json'
         
         blob_url_path=blob_path.absolute().relative_to(
@@ -91,7 +97,14 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
         f'{BUCKET_PREFIX}/{blob_url_path.__str__()}'
         print('convert success')
         root = create_viewer_object(name, result.objects, ifc_file,include_spatial_hierarchy=False)
-
+        ud=root['object'].get('userData',{})
+        props=ud.get('properties',{})
+        props['units']=result.info.units.symbol
+       
+        ud['properties']=props
+        root['object']['userData']=ud
+        
+        
         key= f'{BUCKET_PREFIX}/{blob_url_path.__str__()}'
         with open(blob_path,mode="w",encoding='utf-8') as f:
             ujson.dump(root,f, ensure_ascii=False)
