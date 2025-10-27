@@ -1,4 +1,5 @@
 # consumer.py
+import multiprocessing
 import os
 from collections import namedtuple
 
@@ -45,7 +46,7 @@ from urllib.parse import urlparse
 
 REDIS_HOST, REDIS_PORT, REDIS_DB= redis_urlparse(REDIS_URL)
 REDIS_PASSWORD=os.getenv("REDIS_PASSWORD",None)
-NUM_THREADS=os.getenv("NUM_THREADS",None)
+NUM_THREADS=int(os.getenv("NUM_THREADS",str(multiprocessing.cpu_count()-1)))
 
 def from_redis( data: dict):
     
