@@ -20,6 +20,7 @@ setup(
 "aiofiles",
         "psutil",
         "kubernetes",
+        "tqdm"
     ],
     entry_points={
         'console_scripts': [

@@ -108,7 +108,7 @@ def mesh_to_three(mesh:Mesh,  props:dict=None,name="MeshObject",color=None, mat=
             "type": "Mesh",
             "name": name,
             "layers": 1,
-            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] if matrix is None else list(matrix),
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] if matrix is None else list(np.array(matrix).flatten(order='F').tolist()),
             "up": [0, 1, 0],
             "userData":{"properties":props if props is not None else {}},
             "geometry": mesh_geometry_uid,

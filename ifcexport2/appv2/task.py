@@ -81,8 +81,8 @@ def ifc_export(data:TaskData,*,volume_path='./vol',blobs_prefix:str='blobs',metr
 
         print(f'success')
         result=convert(
-                ConvertArguments(ifc_file, scale=extras['scale'], excluded_types=extras['excluded_types'], threads=extras['threads'],
-                                 settings=extras['settings'], name=name))
+                ConvertArguments(fp,  excluded_types=extras['excluded_types'], threads=extras['threads'],
+                                 settings=settings_dict, name=name),threads=extras['threads'],verbose=True)
         blob_path=Path(volume_path)/blobs_prefix/f'{name}-{upload_id}.json'
         
         blob_url_path=blob_path.absolute().relative_to(

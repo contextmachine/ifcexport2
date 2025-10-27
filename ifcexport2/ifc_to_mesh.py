@@ -8,7 +8,7 @@ import os
 
 import rich
 
-
+from ifcexport2.ifc_preprocess import preprocess_ifc, IfcInfo
 from ifcexport2.mesh_to_three import create_three_js_root, mesh_to_three, add_mesh, create_group, get_property, \
     add_material, material, default_material, add_geometry, color_attr_material
 from ifcexport2.mesh import Mesh
@@ -22,7 +22,7 @@ import ifcopenshell.geom
 import ifcopenshell.util.element
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import List, Tuple, Union, Literal, NamedTuple,Any
+from typing import List, Tuple, Union, Literal, NamedTuple, Any, Optional, Iterator
 from typing import Protocol
 from ifcexport2.models import IRGeometryObject, ImportFailList, IfcFail
 NO_OCC=bool(os.getenv("NO_OCC",0))
@@ -56,6 +56,13 @@ def write_ir_to_file(objects: list[IRGeometryObject], fp, props=None, name="Grou
 
 
 
+@dataclasses.dataclass(slots=True, frozen=True)
+class ConvertResult:
+    success: bool
+    objects: list[IRGeometryObject]
+    info: IfcInfo
+    
+    # fails:ImportFailList
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -70,72 +77,146 @@ class ConvertArguments:
     is_file_path:bool=False
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
-class ConvertResult:
-    success: bool
-    objects: list[IRGeometryObject]
-    meshes: list[Mesh]
-    fails: ImportFailList
 
 
 
-def convert(args: ConvertArguments) -> ConvertResult:
-    if isinstance(args.ifc_doc,str):
-
-        ifc_file = ifc_loads(args.ifc_doc, is_path=False)
-    else:
-        print()
-        ifc_file=args.ifc_doc
-
-
+from tqdm import tqdm
+from ifcopenshell.util.unit import convert_file_length_units, convert_unit
+from ifcopenshell.util.unit import convert as ifcopsh_convert
+OUTPUT_UNITS = "MILLIMETER"
+def convert(
+    args: ConvertArguments,
+    threads=None,
+    verbose=False,
+    target_units=OUTPUT_UNITS,
+    
+) -> ConvertResult:
+    ifc_file = ifc_loads(  args.ifc_doc,is_path=True
+    )
+  
+    info = preprocess_ifc(ifc_file,args.excluded_types)
+    print(info)
+    #ifc_file = convert_file_length_units(ifc_file, target_units)
     settings = ifcopenshell.geom.settings()
-    #settings.set("use-python-opencascade", not NO_OCC)
-
+    if threads is None:
+        threads = multiprocessing.cpu_count() - 1
+    threads = max(threads, 1)
     for k, v in args.settings.items():
-
-        settings.set(getattr(settings, k, k), v)
-
+        settings.set(getattr(settings, k), v)
+    settings.set("convert-back-units", True)
+    if verbose:
+        print(f"Using {threads} threads for processing.")
+        print(f"settingds:\n{settings}")
     if args.backend is not None:
-
-
-        iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=max(args.threads - 1, 1),
-                                              geometry_library=args.backend)
+        iterator = ifcopenshell.geom.iterator(
+            settings,
+            ifc_file,
+            num_threads=threads,
+            geometry_library=args.backend,
+        )
     else:
-        iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=max(args.threads - 1, 1))
-
-    # Process geometry items
-    success, objects, meshes, fails = process_ifc_geometry_items(
+        iterator = ifcopenshell.geom.iterator(settings, ifc_file, num_threads=threads)
+    itr = process_ifc_geometry_items(
         geom_iterator=iterator,
-        scale=args.scale,
-        print_items=False,
-        excluded_types=args.excluded_types
+        excluded_types=args.excluded_types,
+    
     )
-    del iterator
-    del ifc_file
-    del args
-    gc.collect(
+    if verbose:
 
-    )
+  
+  
+        total = info.product_count
+        # --- pre-count only metadata (very fast, no geometry)
 
-    return ConvertResult(success, objects, meshes, fails)
+        itr = tqdm(
+            itr,
+            desc="ifc processing",
+            dynamic_ncols=True,
+            colour="#1d6acf",
+            total=total,
+        )
+    items=list(itr)
+    
+  
+        
+    return ConvertResult(len(items)>0,items,info)
 
 
-def safe_call_fast_convert(ifc_string: str, scale: float = 1.0,
-                           excluded_types: Tuple[str, ...] = ("IfcSpace",),
-                           threads: int = min(6,os.cpu_count()-2),
-                           settings: dict = None,name="Model", is_file_path:bool=False):
+def safe_call_fast_convert(
+    ifc_string: str,
+    mesh_file_path: str,
+    excluded_types: list[str] = None,
+    threads=None,
+    settings: dict = None,
+    verbose: bool = False,
+):
+    if excluded_types is None:
+        excluded_types = ["IfcSpace", "IfcOpeningElement"]
 
-    return convert(ConvertArguments(ifc_string, scale=scale, excluded_types=excluded_types, threads=threads,
-                                            settings=settings,name=name,is_file_path=is_file_path))
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            convert,
+            ConvertArguments(
+                ifc_string,
+                backend=None,
+                excluded_types=excluded_types,
+                settings=settings,
+                mesh_file_path=mesh_file_path,
+            ),
+            verbose=verbose,
+            threads=threads,
+        )
+        try:
+
+            return future.result()
+        except Exception as e:
+            print(f"Fast method failed with exception: {e}")
+            return convert(
+                ConvertArguments(
+                    ifc_string,
+                    excluded_types=excluded_types,
+                    settings=settings,
+                    mesh_file_path=mesh_file_path,
+                ),
+                threads=1,
+                verbose=verbose,
+            )
 
 
-def convert_from_file_path(ifc_fp: str, scale: float = 1.0,
-                           excluded_types: Tuple[str, ...] = ("IfcSpace",),
-                           threads: int = min(6, os.cpu_count() - 2),
-                           settings: dict = None, name="Model", is_file_path: bool = False):
-    print(f'from fp: {ifc_fp}')
-    return convert(ConvertArguments(ifcopenshell.open(ifc_fp), scale=scale, excluded_types=excluded_types, threads=threads,
-                                    settings=settings, name=name, is_file_path=is_file_path))
+import ifcopenshell.util
+import ifcopenshell.util.element
+
+
+def extract_psets(ifc_element) -> dict[str]:
+
+    psets = ifcopenshell.util.element.get_psets(ifc_element)
+    return psets
+
+
+def combine_transform(t1: np.ndarray, t2: np.ndarray) -> np.ndarray:
+    """
+    Combine two 4x4 transforms into one.
+    Semantics (row-vector pipeline as used in transform_nurbs):
+      result = t2 @ t1    # applying t1, then t2.
+    """
+    T1 = np.asarray(t1, dtype=float)
+    T2 = np.asarray(t2, dtype=float)
+    if T1.shape != (4, 4) or T2.shape != (4, 4):
+        raise ValueError("Both t1 and t2 must have shape (4,4).")
+    return T2 @ T1
+
+
+def scale_matrix(factor):
+    S = np.eye(4)
+    S[:3, :3] *= factor
+    return S
+
+
+from ifcopenshell.entity_instance import entity_instance
+
+
+
+
 
 
 def extract_color(itm):
@@ -153,7 +234,7 @@ def parse_geom_item(
         item: TriangulationElement, scale: float = 1.0
 ) -> Tuple[bool, IRGeometryObject, Union[Mesh, Tuple[str, str]]]:
     typ = item.type
-    trx = item.transformation.matrix
+    trx =  (np.reshape(item.transformation.matrix, (4, 4), order="F"),)
     product_id = item.id
     name = item.name
     parent_id = item.parent_id
@@ -184,7 +265,7 @@ def parse_geom_item(
 
         cols = materials_colors[np.array(geom.material_ids, dtype=int)]
         ccols = cols[np.arange(faces.shape[0]).repeat(3)]
-
+        
         colors = np.zeros_like(verts)
         colors[faces] = ccols.reshape((*faces.shape, 3))
 
@@ -218,48 +299,38 @@ def parse_geom_item(
             mesh=None,
             transform=trx,
         )
+        print(err)
         tb = traceback.format_exc()
         return False, ifc_object, (str(err), tb)
 
 
 def process_ifc_geometry_items(
-        geom_iterator,
-        scale: float,
-        print_items: bool,
-        excluded_types: Tuple[str, ...],
-) -> Tuple[bool, List[IRGeometryObject], List[Mesh], ImportFailList]:
-    objects: List[IRGeometryObject] = []
-    meshes: List[Mesh] = []
-    fails: List[IfcFail] = []
+    geom_iterator,
+    excluded_types: list[str],
+
+    **kwargs,
+):
 
     if geom_iterator.initialize():
         i = 0
         j = 0
-        while True:
-            if print_items:
-                print(f"Reading IFC: {i}", flush=True, end="\r")
+        while geom_iterator.next():
+            # if print_items:
+            # print(f"Reading IFC: {i}", flush=True, end="\r")
             i += 1
             shape = geom_iterator.get()
-
             if shape.type not in excluded_types:
-                success, attrs, mesh_or_tb = parse_geom_item(shape, scale=scale)
+                success, obj, mesh_or_tb = parse_geom_item(
+                    shape
+                )
+              
                 if success:
-
-                    objects.append(attrs)
-                    meshes.append(mesh_or_tb)
-                    j += 1
-                else:
-                    fails.append(IfcFail(item=attrs, tb=mesh_or_tb))
-
-            if not geom_iterator.next():
-                break
-        if print_items:
-            print()  # Move to the next line after progress
-        if len(objects) == 0:
-            return False, [], [], fails
-        return True, objects, meshes, fails
+                    yield obj
+                
+        return None
     else:
-        return False, [], [], []
+        print('not initialized')
+
 
 
 def ifc_loads(txt: str, is_path:bool=False):
@@ -326,7 +397,7 @@ def create_viewer_object(name, objects:list[IRGeometryObject],ifc_file:ifcopensh
     )
     root = create_three_js_root(name,{'name':name})
     _build(root,ifc_hierarchy,geoms,ifc_file)
-
+    
     return root
 
 def ifc_load(f):
@@ -373,40 +444,34 @@ def cli_export(
     save_fails = not no_save_fails
 
     # Open the IFC file
-    try:
-        with open(input_file, 'r') as f:
-            ifc_string = f.read()
-
+   
         # ifc_file = ifcopenshell.open(str(input_file))
-    except Exception as e:
-        rich.print(f"[red]Error opening IFC file: {e}[/red]", file=sys.stderr)
-        sys.exit(1)
+  
 
     # Create geometry iterator
     # (Assuming `safe_call_fast_convert` and `settings_dict` are defined elsewhere)
 
-    result = safe_call_fast_convert(
-            ifc_string,
-            scale=scale,
-            excluded_types=tuple(exclude),
+    result = convert(ConvertArguments(      input_file,
+      
+         
+            excluded_types=list(exclude),
             threads=threads,
-            settings=settings_dict,name=input_file.stem
+            settings=settings_dict,name=input_file.stem),
+                     threads=threads,verbose=True
+                     
         )
-
-
-    success, objects, meshes, fails = result.success, result.objects, result.meshes, result.fails
+    
+    
+    success, objects = result.success, result.objects
     output_files = []
-
+   
     if not success:
         if print_items:
-            if len(fails) > 0:
-
-                    rich.print(f"[red]Failure: Error during geometry conversion: {result.fails}[/red]", file=sys.stderr)
-            else:
-                    rich.print(f"[red]Failure: IfcOpenShell crashed on all attempts. No objects were extracted.[/red]", file=sys.stderr)
+            rich.print(f"[red]Failure: IfcOpenShell crashed on all attempts. No objects were extracted.[/red]", file=sys.stderr)
 
 
         sys.exit(1)
+        
     else:
         if print_items:
             print(f"Success: {len(result.objects)} objects extracted. {len(result.fails)} fails")
@@ -414,12 +479,14 @@ def cli_export(
     # Write meshes to file
     if output_format.viewer:
         try:
-            ifc_file = ifcopenshell.file.from_string(ifc_string)
+            
 
             root=create_viewer_object(input_file.stem,
                                       objects,
-                                      ifc_file
+                                      ifcopenshell.open(str(input_file))
                                       )
+            
+            
             mesh_output_file = output_prefix.with_suffix(".viewer.json")
             with open(mesh_output_file, 'w') as f:
                 json.dump(root, f)
@@ -453,10 +520,8 @@ def cli_export(
         fails_output_file = output_prefix.with_suffix(".fails.json")
         try:
             with fails_output_file.open("w") as f:
-                fails_serializable = [
-                    {"item": asdict(fail.item), "traceback": fail.tb}
-                    for fail in fails
-                ]
+                fails_serializable = [{"item": asdict(fail.item), "traceback": fail.tb} for fail in fails]
+                
                 ujson.dump(fails_serializable, f, ensure_ascii=False)
             output_files.append(fails_output_file)
             if print_items:
