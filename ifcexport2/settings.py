@@ -3,7 +3,7 @@
 ifcopenshell_default_settings_dict = settings=dict(
     USE_WORLD_COORDS=True,
     DISABLE_BOOLEAN_RESULT=False,
-    WELD_VERTICES=False,
+    WELD_VERTICES=True,
     DISABLE_OPENING_SUBTRACTIONS=False,
     NO_NORMALS=True,
     PRECISION=1e-7,
